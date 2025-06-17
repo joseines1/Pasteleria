@@ -1,19 +1,14 @@
 {
   "name": "pasteleria-api",
   "version": "1.0.0",
-  "description": "API REST para gestión de pastelería",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node app.js"
+    "start": "node app.js"
   },
-  "keywords": ["api", "pasteleria", "nodejs"],
-  "author": "Tu Nombre",
-  "license": "ISC",
   "engines": {
-    "node": "16.x"
+    "node": "18.x"
   },
   "dependencies": {
-    "express": "4.18.2"
+    "express": "^4.18.2"
   }
 }
