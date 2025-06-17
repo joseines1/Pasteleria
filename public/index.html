@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión - Pastelería</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Pantalla de Login -->
+        <div id="loginScreen" class="screen active">
+            <div class="login-card">
+                <div class="header">
+                    <h1>🧁 Pastelería</h1>
+                    <p>Sistema de Gestión</p>
+                </div>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Contraseña:</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary">Iniciar Sesión</button>
+                </form>
+                
+                <div id="loginError" class="error-message" style="display: none;"></div>
+                
+                <div class="test-users">
+                    <h3>Usuarios de Prueba:</h3>
+                    <div class="user-buttons">
+                        <button class="btn-test" onclick="fillTestUser('empleado@test.com', 'emp123')">
+                            👷 Empleado Test
+                        </button>
+                        <button class="btn-test" onclick="fillTestUser('admin@test.com', 'admin123')">
+                            👑 Administrador
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pantalla Principal -->
+        <div id="mainScreen" class="screen">
+            <div class="navbar">
+                <div class="nav-left">
+                    <h2>🧁 Pastelería</h2>
+                    <span id="userInfo"></span>
+                </div>
+                <div class="nav-right">
+                    <button id="logoutBtn" class="btn-secondary">Cerrar Sesión</button>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="showTab('ingredientes')">📦 Ingredientes</button>
+                    <button class="tab-btn" onclick="showTab('postres')">🧁 Postres</button>
+                    <button class="tab-btn" onclick="showTab('recetas')">📋 Recetas</button>
+                    <button class="tab-btn" onclick="showTab('notificaciones')">🔔 Notificaciones</button>
+                </div>
+                
+                <!-- Tab Ingredientes -->
+                <div id="ingredientes" class="tab-content active">
+                    <div class="section-header">
+                        <h3>Gestión de Ingredientes</h3>
+                        <button class="btn-primary" onclick="showAddIngredienteForm()">➕ Agregar Ingrediente</button>
+                    </div>
+                    
+                    <div id="addIngredienteForm" class="form-container" style="display: none;">
+                        <h4>Nuevo Ingrediente</h4>
+                        <form id="ingredienteForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="nombreIngrediente">Nombre:</label>
+                                    <input type="text" id="nombreIngrediente" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cantidadIngrediente">Cantidad:</label>
+                                    <input type="number" id="cantidadIngrediente" required>
+                                </div>
+                            </div>
+                            <div class="form-buttons">
+                                <button type="submit" class="btn-primary">Guardar</button>
+                                <button type="button" class="btn-secondary" onclick="hideAddIngredienteForm()">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div id="ingredientesList" class="items-list"></div>
+                </div>
+                
+                <!-- Tab Postres -->
+                <div id="postres" class="tab-content">
+                    <div class="section-header">
+                        <h3>Gestión de Postres</h3>
+                        <button class="btn-primary" onclick="showAddPostreForm()">➕ Agregar Postre</button>
+                    </div>
+                    
+                    <div id="addPostreForm" class="form-container" style="display: none;">
+                        <h4>Nuevo Postre</h4>
+                        <form id="postreForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="nombrePostre">Nombre:</label>
+                                    <input type="text" id="nombrePostre" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="precioPostre">Precio:</label>
+                                    <input type="number" id="precioPostre" step="0.01" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="descripcionPostre">Descripción:</label>
+                                <textarea id="descripcionPostre" rows="3"></textarea>
+                            </div>
+                            <div class="form-buttons">
+                                <button type="submit" class="btn-primary">Guardar</button>
+                                <button type="button" class="btn-secondary" onclick="hideAddPostreForm()">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div id="postresList" class="items-list"></div>
+                </div>
+                
+                <!-- Tab Recetas -->
+                <div id="recetas" class="tab-content">
+                    <div class="section-header">
+                        <h3>Gestión de Recetas</h3>
+                        <button class="btn-primary" onclick="showAddRecetaForm()">➕ Agregar Receta</button>
+                    </div>
+                    
+                    <div id="addRecetaForm" class="form-container" style="display: none;">
+                        <h4>Nueva Receta</h4>
+                        <form id="recetaForm">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="postreSelect">Postre:</label>
+                                    <select id="postreSelect" required>
+                                        <option value="">Seleccionar postre...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ingredienteSelect">Ingrediente:</label>
+                                    <select id="ingredienteSelect" required>
+                                        <option value="">Seleccionar ingrediente...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="cantidadReceta">Cantidad Necesaria:</label>
+                                <input type="number" id="cantidadReceta" step="0.01" required>
+                            </div>
+                            <div class="form-buttons">
+                                <button type="submit" class="btn-primary">Guardar</button>
+                                <button type="button" class="btn-secondary" onclick="hideAddRecetaForm()">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div id="recetasList" class="items-list"></div>
+                </div>
+                
+                <!-- Tab Notificaciones -->
+                <div id="notificaciones" class="tab-content">
+                    <div class="section-header">
+                        <h3>Centro de Notificaciones</h3>
+                        <button class="btn-primary" onclick="testNotifications()">🧪 Probar Notificaciones</button>
+                    </div>
+                    
+                    <div class="notification-status">
+                        <div class="status-card">
+                            <h4>Estado del Sistema</h4>
+                            <div id="notificationStatus">
+                                <p>🔄 Verificando estado...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="status-card">
+                            <h4>Tokens Push Activos</h4>
+                            <div id="pushTokensStatus">
+                                <p>🔄 Cargando...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="test-notifications">
+                        <h4>Probar Notificaciones</h4>
+                        <div class="form-row">
+                            <button class="btn-test" onclick="testCRUDNotifications()">🧪 Probar CRUD</button>
+                            <button class="btn-test" onclick="cleanInvalidTokens()">🧹 Limpiar Tokens</button>
+                            <button class="btn-test" onclick="checkSystemStatus()">📊 Estado Sistema</button>
+                        </div>
+                    </div>
+                    
+                    <div id="notificationResults" class="results-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Cargando...</p>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html> 
