@@ -4,26 +4,26 @@
   "description": "API REST para gestión de pastelería con notificaciones push",
   "main": "app.js",
   "scripts": {
-    "start": "NODE_ENV=production node app.js",
-    "dev": "NODE_ENV=development node app.js",
+    "start": "node app.js",
+    "dev": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["api", "pasteleria", "nodejs", "express", "notificaciones"],
   "author": "Tu Nombre",
   "license": "ISC",
   "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "node": "18.x",
+    "npm": "8.x"
   },
   "dependencies": {
     "@libsql/client": "^0.15.7",
-    "axios": "^1.10.0",
-    "bcryptjs": "^3.0.2",
+    "axios": "^1.6.8",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.4.5",
     "expo-server-sdk": "^3.15.0",
-    "express": "^5.1.0",
-    "firebase-admin": "^13.4.0",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.0.0",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^2.7.0"
   }
