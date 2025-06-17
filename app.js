@@ -1,6 +1,13 @@
 // Cargar variables de entorno
 require('dotenv').config();
 
+// Verificación de variables críticas para Heroku
+if (process.env.NODE_ENV === 'production') {
+  console.log('🔧 Configuración de producción detectada');
+  console.log('🔑 JWT_SECRET configurado:', !!process.env.JWT_SECRET);
+  console.log('🌐 CORS_ORIGIN configurado:', !!process.env.CORS_ORIGIN);
+}
+
 const express = require('express');
 const ingredientesRouter = require('./routes/ingredientes');
 const postresRouter = require('./routes/postres');
