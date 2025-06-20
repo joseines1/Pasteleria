@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "pasteleria-app",
+    "name": "Pastelería App",
     "slug": "pasteleria-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,17 +13,67 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pasteleria.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Esta app puede usar la cámara para escanear códigos QR.",
+        "NSMicrophoneUsageDescription": "Esta app puede usar el micrófono para notificaciones."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.pasteleria.app",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "useNextNotificationsApi": true,
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#FF6B6B",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Pastelería Updates"
+    },
+    "plugins": [
+      "expo-build-properties",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B6B",
+          "mode": "production"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5ca808a7-4102-42e5-aae3-cf083ed6e243"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5ca808a7-4102-42e5-aae3-cf083ed6e243"
     }
   }
 }
