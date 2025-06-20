@@ -21,26 +21,44 @@ exports.getById = async (req, res) => {
     }
 };
 
+exports.getByPostre = async (req, res) => {
+    try {
+        const recetas = await PostreIngrediente.getRecetasByPostre(req.params.idPostre);
+        res.json(recetas);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 exports.create = async (req, res) => {
     try {
         const { idPostre, idIngrediente, Cantidad } = req.body;
-        const id = await PostreIngrediente.createPostreIngrediente(idPostre, idIngrediente, Cantidad);
-        const nuevoRegistro = await PostreIngrediente.getPostreIngredienteById(id);
+        console.log('Datos recibidos para crear receta:', { idPostre, idIngrediente, Cantidad });
         
-        // Enviar notificación push a administradores
-        try {
-            const userName = req.user?.nombre || 'Usuario';
-            await PushNotificationService.notifyRecetaCreated({
-                id: id,
-                postre_nombre: nuevoRegistro.postre_nombre || 'Postre'
-            }, userName);
-        } catch (notificationError) {
-            console.error('Error enviando notificación:', notificationError);
-            // No fallar la operación por error de notificación
+        const nuevoRegistro = await PostreIngrediente.createPostreIngrediente(idPostre, idIngrediente, Cantidad);
+        console.log('Resultado de createPostreIngrediente:', nuevoRegistro);
+        
+        // Obtener el registro completo con los nombres
+        const registroCompleto = await PostreIngrediente.getPostreIngredienteById(nuevoRegistro.idPostreIngrediente);
+        console.log('Registro completo:', registroCompleto);
+        
+        // Enviar notificación push a administradores (solo si hay usuario autenticado)
+        if (req.user) {
+            try {
+                const userName = req.user.nombre || 'Usuario';
+                await PushNotificationService.notifyRecetaCreated({
+                    id: nuevoRegistro.idPostreIngrediente,
+                    postre_nombre: registroCompleto?.postre_nombre || 'Postre'
+                }, userName);
+            } catch (notificationError) {
+                console.error('Error enviando notificación:', notificationError);
+                // No fallar la operación por error de notificación
+            }
         }
         
-        res.status(201).json(nuevoRegistro);
+        res.status(201).json(registroCompleto || nuevoRegistro);
     } catch (err) {
+        console.error('Error en create receta:', err);
         res.status(500).json({ error: err.message });
     }
 };
@@ -69,16 +87,18 @@ exports.update = async (req, res) => {
             return res.status(404).json({ error: 'No se pudo actualizar la relación' });
         }
         
-        // Enviar notificación push a administradores
-        try {
-            const userName = req.user?.nombre || 'Usuario';
-            await PushNotificationService.notifyRecetaUpdated({
-                id: req.params.id,
-                postre_nombre: registroExistente.postre_nombre || 'Postre'
-            }, userName);
-        } catch (notificationError) {
-            console.error('Error enviando notificación:', notificationError);
-            // No fallar la operación por error de notificación
+        // Enviar notificación push a administradores (solo si hay usuario autenticado)
+        if (req.user) {
+            try {
+                const userName = req.user.nombre || 'Usuario';
+                await PushNotificationService.notifyRecetaUpdated({
+                    id: req.params.id,
+                    postre_nombre: registroExistente.postre_nombre || 'Postre'
+                }, userName);
+            } catch (notificationError) {
+                console.error('Error enviando notificación:', notificationError);
+                // No fallar la operación por error de notificación
+            }
         }
         
         res.json({ message: 'Relación actualizada', rowsAffected });
@@ -118,15 +138,17 @@ exports.delete = async (req, res) => {
         
         console.log(`Registro con ID ${id} eliminado exitosamente`);
         
-        // Enviar notificación push a administradores
-        try {
-            const userName = req.user?.nombre || 'Usuario';
-            await PushNotificationService.notifyRecetaDeleted({
-                postre_nombre: registroExistente.postre_nombre || 'Postre'
-            }, userName);
-        } catch (notificationError) {
-            console.error('Error enviando notificación:', notificationError);
-            // No fallar la operación por error de notificación
+        // Enviar notificación push a administradores (solo si hay usuario autenticado)
+        if (req.user) {
+            try {
+                const userName = req.user.nombre || 'Usuario';
+                await PushNotificationService.notifyRecetaDeleted({
+                    postre_nombre: registroExistente.postre_nombre || 'Postre'
+                }, userName);
+            } catch (notificationError) {
+                console.error('Error enviando notificación:', notificationError);
+                // No fallar la operación por error de notificación
+            }
         }
         
         res.json({ 

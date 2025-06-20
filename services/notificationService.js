@@ -124,26 +124,24 @@ async function notificarEliminacionIngrediente(nombreIngrediente) {
     );
 }
 
-async function notificarIngresoPostre(nombrePostre, precio) {
+async function notificarIngresoPostre(nombrePostre) {
     return await enviarNotificacionAdministradores(
         '🧁 Nuevo Postre',
-        `Se agregó: ${nombrePostre} - $${precio}`,
+        `Se agregó: ${nombrePostre}`,
         { 
             accion: 'crear_postre', 
-            postre: nombrePostre,
-            precio
+            postre: nombrePostre
         }
     );
 }
 
-async function notificarActualizacionPostre(nombrePostre, nuevoPrecio) {
+async function notificarActualizacionPostre(nombrePostre) {
     return await enviarNotificacionAdministradores(
         '📝 Postre Actualizado',
-        `${nombrePostre} actualizado - $${nuevoPrecio}`,
+        `${nombrePostre} actualizado`,
         { 
             accion: 'actualizar_postre', 
-            postre: nombrePostre,
-            precio: nuevoPrecio
+            postre: nombrePostre
         }
     );
 }

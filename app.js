@@ -1,7 +1,7 @@
 const express = require('express');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Middleware básico
 app.use(express.json());
@@ -44,39 +44,17 @@ app.get('/test', (req, res) => {
   });
 });
 
-// Auth endpoint básico
-app.post('/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  if (email === 'admin@test.com' && password === '123456') {
-    res.json({
-      success: true,
-      message: 'Login exitoso',
-      user: { email: 'admin@test.com', role: 'admin' },
-      token: 'token_demo_12345'
-    });
-  } else {
-    res.status(401).json({
-      success: false,
-      message: 'Credenciales inválidas'
-    });
-  }
-});
+// Importar rutas
+const authRoutes = require('./routes/auth');
+const postresRoutes = require('./routes/postres');
+const ingredientesRoutes = require('./routes/ingredientes');
+const postresIngredientesRoutes = require('./routes/postresIngredientes');
 
-// Endpoints demo
-app.get('/ingredientes', (req, res) => {
-  res.json([
-    { id: 1, nombre: 'Harina', stock: 100 },
-    { id: 2, nombre: 'Azúcar', stock: 50 }
-  ]);
-});
-
-app.get('/postres', (req, res) => {
-  res.json([
-    { id: 1, nombre: 'Torta de Chocolate', precio: 25.99 },
-    { id: 2, nombre: 'Cheesecake', precio: 18.50 }
-  ]);
-});
+// Usar las rutas reales de Turso
+app.use('/auth', authRoutes);
+app.use('/postres', postresRoutes);
+app.use('/ingredientes', ingredientesRoutes);
+app.use('/postres-ingredientes', postresIngredientesRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -94,9 +72,11 @@ app.use('*', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`📍 Entorno: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Accesible desde: http://192.168.1.74:${PORT}`);
+  console.log(`🔗 Local: http://localhost:${PORT}`);
 });
 
 module.exports = app;

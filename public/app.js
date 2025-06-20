@@ -259,7 +259,6 @@ function displayPostres(postres) {
         <div class="item-card">
             <div class="item-info">
                 <h4>${postre.nombre}</h4>
-                <p>Precio: $${postre.precio}</p>
                 ${postre.descripcion ? `<p>${postre.descripcion}</p>` : ''}
             </div>
             <div class="item-actions">
@@ -274,13 +273,12 @@ async function handleAddPostre(e) {
     e.preventDefault();
     
     const nombre = document.getElementById('nombrePostre').value;
-    const precio = parseFloat(document.getElementById('precioPostre').value);
     const descripcion = document.getElementById('descripcionPostre').value;
     
     try {
         await apiRequest('/postres', {
             method: 'POST',
-            body: JSON.stringify({ nombre, precio, descripcion })
+            body: JSON.stringify({ nombre, descripcion })
         });
         
         showMessage('Postre agregado exitosamente', 'success');
@@ -323,15 +321,21 @@ function updatePostreSelect(postres) {
 // Gestión de Recetas
 async function loadRecetas() {
     try {
+        console.log('Cargando recetas...');
         const recetas = await apiRequest('/postres-ingredientes');
+        console.log('Recetas obtenidas:', recetas);
         displayRecetas(recetas);
         
-        // Cargar ingredientes para el select
-        const ingredientes = await apiRequest('/ingredientes');
+        // Cargar postres e ingredientes para los selects
+        const [postres, ingredientes] = await Promise.all([
+            apiRequest('/postres'),
+            apiRequest('/ingredientes')
+        ]);
+        updatePostreSelect(postres);
         updateIngredienteSelect(ingredientes);
     } catch (error) {
         console.error('Error cargando recetas:', error);
-        showMessage('Error cargando recetas', 'error');
+        showMessage('Error cargando recetas: ' + error.message, 'error');
     }
 }
 
@@ -346,9 +350,9 @@ function displayRecetas(recetas) {
     container.innerHTML = recetas.map(receta => `
         <div class="item-card">
             <div class="item-info">
-                <h4>Receta #${receta.id}</h4>
-                <p>Postre ID: ${receta.idPostre} - Ingrediente ID: ${receta.idIngrediente}</p>
-                <p>Cantidad: ${receta.cantidad}</p>
+                <h4>📋 ${receta.postre_nombre || 'Postre ID: ' + receta.idPostre}</h4>
+                <p>🥫 Ingrediente: ${receta.ingrediente_nombre || 'ID: ' + receta.idIngrediente}</p>
+                <p>📏 Cantidad: ${receta.Cantidad || receta.cantidad}</p>
             </div>
             <div class="item-actions">
                 <button class="btn-delete" onclick="deleteReceta(${receta.id})">🗑️ Eliminar</button>

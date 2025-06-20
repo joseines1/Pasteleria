@@ -2,13 +2,55 @@
 const db = require('./db');
 
 async function getAllPostresIngredientes() {
-    const result = await db.execute('SELECT idPostreIngrediente as id, idPostre, idIngrediente, Cantidad FROM postresingredientes');
+    const result = await db.execute(`
+        SELECT 
+            pi.idPostreIngrediente as id, 
+            pi.idPostre, 
+            pi.idIngrediente, 
+            pi.Cantidad,
+            p.nombrePostre as postre_nombre,
+            i.nombreIngrediente as ingrediente_nombre
+        FROM postresingredientes pi
+        LEFT JOIN postres p ON pi.idPostre = p.idPostre
+        LEFT JOIN ingredientes i ON pi.idIngrediente = i.idIngrediente
+        ORDER BY p.nombrePostre, i.nombreIngrediente
+    `);
     return result.rows;
 }
 
 async function getPostreIngredienteById(id) {
-    const result = await db.execute('SELECT idPostreIngrediente as id, idPostre, idIngrediente, Cantidad FROM postresingredientes WHERE idPostreIngrediente = ?', [id]);
+    const result = await db.execute(`
+        SELECT 
+            pi.idPostreIngrediente as id, 
+            pi.idPostre, 
+            pi.idIngrediente, 
+            pi.Cantidad,
+            p.nombrePostre as postre_nombre,
+            i.nombreIngrediente as ingrediente_nombre
+        FROM postresingredientes pi
+        LEFT JOIN postres p ON pi.idPostre = p.idPostre
+        LEFT JOIN ingredientes i ON pi.idIngrediente = i.idIngrediente
+        WHERE pi.idPostreIngrediente = ?
+    `, [id]);
     return result.rows[0];
+}
+
+async function getRecetasByPostre(idPostre) {
+    const result = await db.execute(`
+        SELECT 
+            pi.idPostreIngrediente as id, 
+            pi.idPostre, 
+            pi.idIngrediente, 
+            pi.Cantidad,
+            p.nombrePostre as postre_nombre,
+            i.nombreIngrediente as ingrediente_nombre
+        FROM postresingredientes pi
+        LEFT JOIN postres p ON pi.idPostre = p.idPostre
+        LEFT JOIN ingredientes i ON pi.idIngrediente = i.idIngrediente
+        WHERE pi.idPostre = ?
+        ORDER BY i.nombreIngrediente
+    `, [idPostre]);
+    return result.rows;
 }
 
 async function createPostreIngrediente(idPostre, idIngrediente, Cantidad) {
@@ -90,6 +132,7 @@ async function deleteByPostreId(idPostre) {
 module.exports = {
     getAllPostresIngredientes,
     getPostreIngredienteById,
+    getRecetasByPostre,
     createPostreIngrediente,
     updatePostreIngrediente,
     updateCantidad,
