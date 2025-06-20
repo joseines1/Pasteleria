@@ -49,12 +49,14 @@ const authRoutes = require('./routes/auth');
 const postresRoutes = require('./routes/postres');
 const ingredientesRoutes = require('./routes/ingredientes');
 const postresIngredientesRoutes = require('./routes/postresIngredientes');
+const notificationsRoutes = require('./routes/notificationsRoutes');
 
 // Usar las rutas reales de Turso
 app.use('/auth', authRoutes);
 app.use('/postres', postresRoutes);
 app.use('/ingredientes', ingredientesRoutes);
 app.use('/postres-ingredientes', postresIngredientesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

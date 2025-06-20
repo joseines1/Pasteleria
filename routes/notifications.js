@@ -34,7 +34,7 @@ router.post('/send-test', authenticateToken, async (req, res) => {
             });
         }
 
-        // Enviar notificación a todos los administradores
+        // Enviar notificación solo a administradores
         const result = await PushNotificationService.sendToAdmins(
             title || '🧪 Notificación de Prueba',
             body || 'Esta es una notificación de prueba enviada desde la app',
@@ -46,12 +46,12 @@ router.post('/send-test', authenticateToken, async (req, res) => {
             }
         );
 
-        console.log(`✅ Notificación de prueba enviada a ${result.sent || 'usuarios'}`);
+        console.log(`✅ Notificación de prueba enviada a ${result.sent || 'administradores'}`);
 
         res.json({
             success: true,
-            message: 'Notificación de prueba enviada exitosamente',
-            sent: result.sent || 'usuarios',
+            message: 'Notificación de prueba enviada exitosamente a ADMINISTRADORES',
+            sent: result.sent || 'administradores',
             details: result
         });
 

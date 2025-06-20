@@ -8,22 +8,23 @@ class PushNotificationService {
     
     static async sendToAdmins(title, body, data = {}) {
         try {
-            // Obtener tokens de push de administradores Y empleados
-            const userTokens = await Usuario.getAdminPushTokens();
+            // Obtener tokens de push SOLO de administradores
+            const adminUsers = await Usuario.getAdministradoresConTokens();
+            const userTokens = adminUsers.map(admin => admin.pushToken);
             
             if (userTokens.length === 0) {
-                console.log('⚠️  No hay usuarios con tokens de push registrados');
-                console.log('💡 Los usuarios deben iniciar sesión en la app móvil para generar tokens');
-                return { sent: 0, errors: 1, message: 'No hay tokens registrados' };
+                console.log('⚠️  No hay ADMINISTRADORES con tokens de push registrados');
+                console.log('💡 Los administradores deben iniciar sesión en la app móvil para generar tokens');
+                return { sent: 0, errors: 1, message: 'No hay administradores con tokens registrados' };
             }
 
             // Validar tokens
             const validTokens = userTokens.filter(token => Expo.isExpoPushToken(token));
             
             if (validTokens.length === 0) {
-                console.log('⚠️  No hay tokens de push válidos');
-                console.log('💡 Los usuarios necesitan regenerar sus tokens de notificación');
-                return { sent: 0, errors: userTokens.length, message: 'No hay tokens válidos' };
+                console.log('⚠️  No hay tokens de push válidos para administradores');
+                console.log('💡 Los administradores necesitan regenerar sus tokens de notificación');
+                return { sent: 0, errors: userTokens.length, message: 'No hay tokens de administradores válidos' };
             }
 
             // Crear los mensajes de notificación

@@ -2,6 +2,7 @@
 const Ingrediente = require('../models/ingrediente');
 const PostreIngrediente = require('../models/postreIngrediente');
 const PushNotificationService = require('../services/pushNotificationService');
+const Notification = require('../models/notification');
 
 exports.getAll = async (req, res) => {
     try {
@@ -154,5 +155,204 @@ exports.delete = async (req, res) => {
                 details: err.message 
             });
         }
+    }
+};
+
+// Crear solicitud de eliminación (para empleados)
+exports.requestDelete = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        const user = req.user;
+
+        // Validaciones
+        if (isNaN(id) || id <= 0) {
+            return res.status(400).json({ error: 'ID inválido' });
+        }
+
+        // Verificar que el ingrediente existe
+        const ingrediente = await Ingrediente.getIngredienteById(id);
+        if (!ingrediente) {
+            return res.status(404).json({ error: 'Ingrediente no encontrado' });
+        }
+
+        // Verificar que el usuario no sea administrador (los admins pueden eliminar directamente)
+        if (user.rol === 'administrador') {
+            return res.status(400).json({ 
+                error: 'Los administradores pueden eliminar directamente sin solicitud',
+                suggestion: 'Use el endpoint DELETE /ingredientes/:id'
+            });
+        }
+
+        // Crear solicitud de eliminación
+        const notificationId = await Notification.createDeleteRequest(
+            'ingredientes',
+            id,
+            ingrediente.nombre,
+            user.id,
+            user.nombre,
+            {
+                existencias_actuales: ingrediente.existencias,
+                motivo: req.body.motivo || 'Sin motivo especificado'
+            }
+        );
+
+        // Enviar push notification a administradores
+        await PushNotificationService.sendToAdmins(
+            '🗑️ Solicitud de Eliminación',
+            `${user.nombre} solicita eliminar el ingrediente "${ingrediente.nombre}"`,
+            {
+                module: 'ingredientes',
+                action: 'delete_request',
+                notificationId: notificationId,
+                objectId: id
+            }
+        );
+
+        res.json({
+            success: true,
+            message: 'Solicitud de eliminación enviada a los administradores',
+            notificationId: notificationId,
+            ingrediente: {
+                id: ingrediente.id,
+                nombre: ingrediente.nombre
+            }
+        });
+
+    } catch (error) {
+        console.error('Error creando solicitud de eliminación:', error);
+        res.status(500).json({
+            error: 'Error creando solicitud de eliminación',
+            details: error.message
+        });
+    }
+};
+
+// Crear solicitud de modificación (para empleados)
+exports.requestUpdate = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        const { nombreIngrediente, existencias, motivo } = req.body;
+        const user = req.user;
+
+        // Validaciones
+        if (isNaN(id) || id <= 0) {
+            return res.status(400).json({ error: 'ID inválido' });
+        }
+
+        if (!nombreIngrediente || existencias === undefined) {
+            return res.status(400).json({ 
+                error: 'Nombre y existencias son requeridos' 
+            });
+        }
+
+        // Verificar que el ingrediente existe
+        const ingredienteActual = await Ingrediente.getIngredienteById(id);
+        if (!ingredienteActual) {
+            return res.status(404).json({ error: 'Ingrediente no encontrado' });
+        }
+
+        // Verificar que el usuario no sea administrador
+        if (user.rol === 'administrador') {
+            return res.status(400).json({ 
+                error: 'Los administradores pueden modificar directamente sin solicitud',
+                suggestion: 'Use el endpoint PUT /ingredientes/:id'
+            });
+        }
+
+        // Preparar datos de los cambios
+        const cambios = {
+            antes: {
+                nombre: ingredienteActual.nombre,
+                existencias: ingredienteActual.existencias
+            },
+            despues: {
+                nombre: nombreIngrediente,
+                existencias: existencias
+            },
+            motivo: motivo || 'Sin motivo especificado'
+        };
+
+        // Crear solicitud de modificación
+        const notificationId = await Notification.createUpdateRequest(
+            'ingredientes',
+            id,
+            ingredienteActual.nombre,
+            user.id,
+            user.nombre,
+            cambios
+        );
+
+        // Enviar push notification a administradores
+        await PushNotificationService.sendToAdmins(
+            '📝 Solicitud de Modificación',
+            `${user.nombre} solicita modificar el ingrediente "${ingredienteActual.nombre}"`,
+            {
+                module: 'ingredientes',
+                action: 'update_request',
+                notificationId: notificationId,
+                objectId: id
+            }
+        );
+
+        res.json({
+            success: true,
+            message: 'Solicitud de modificación enviada a los administradores',
+            notificationId: notificationId,
+            cambios: cambios
+        });
+
+    } catch (error) {
+        console.error('Error creando solicitud de modificación:', error);
+        res.status(500).json({
+            error: 'Error creando solicitud de modificación',
+            details: error.message
+        });
+    }
+};
+
+// Crear solicitud personalizada para ingredientes
+exports.createCustomRequest = async (req, res) => {
+    try {
+        const { titulo, mensaje, datos_extra } = req.body;
+        const user = req.user;
+
+        if (!titulo || !mensaje) {
+            return res.status(400).json({
+                error: 'Título y mensaje son requeridos'
+            });
+        }
+
+        const notificationId = await Notification.createCustomModuleNotification(
+            'ingredientes',
+            `🥄 ${titulo}`,
+            mensaje,
+            user.id,
+            user.nombre,
+            datos_extra || {}
+        );
+
+        // Enviar push notification a administradores
+        await PushNotificationService.sendToAdmins(
+            `📋 Solicitud Personalizada: ${titulo}`,
+            `${user.nombre} envió una solicitud sobre ingredientes`,
+            {
+                module: 'ingredientes',
+                action: 'custom_request',
+                notificationId: notificationId
+            }
+        );
+
+        res.json({
+            success: true,
+            message: 'Solicitud personalizada enviada a los administradores',
+            notificationId: notificationId
+        });
+
+    } catch (error) {
+        console.error('Error creando solicitud personalizada:', error);
+        res.status(500).json({
+            error: 'Error creando solicitud personalizada',
+            details: error.message
+        });
     }
 }; 

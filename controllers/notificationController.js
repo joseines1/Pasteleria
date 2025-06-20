@@ -81,10 +81,11 @@ exports.sendCustomNotification = async (req, res) => {
 // Verificar push tokens registrados
 exports.checkPushTokens = async (req, res) => {
     try {
-        // Obtener todos los usuarios (administradores y empleados)
-        const userTokens = await Usuario.getAdminPushTokens();
+        // Obtener solo administradores con tokens
+        const adminUsers = await Usuario.getAdministradoresConTokens();
+        const userTokens = adminUsers.map(admin => admin.pushToken);
         const allUsers = await Usuario.getAllUsuarios();
-        const eligibleUsers = allUsers.filter(user => user.rol === 'administrador' || user.rol === 'empleado');
+        const eligibleUsers = allUsers.filter(user => user.rol === 'administrador');
         
         res.json({
             totalEligibleUsers: eligibleUsers.length,
@@ -92,6 +93,7 @@ exports.checkPushTokens = async (req, res) => {
             usersWithoutTokens: eligibleUsers.length - userTokens.length,
             breakdown: {
                 admins: allUsers.filter(u => u.rol === 'administrador').length,
+                adminsWithTokens: adminUsers.length,
                 employees: allUsers.filter(u => u.rol === 'empleado').length
             },
             tokens: userTokens.map(token => ({
@@ -99,8 +101,8 @@ exports.checkPushTokens = async (req, res) => {
                 isValid: token.startsWith('ExponentPushToken')
             })),
             message: userTokens.length === 0 
-                ? 'No hay usuarios con push tokens registrados' 
-                : `${userTokens.length} usuarios tienen tokens registrados`
+                ? 'No hay ADMINISTRADORES con push tokens registrados' 
+                : `${userTokens.length} ADMINISTRADORES tienen tokens registrados`
         });
         
     } catch (error) {
