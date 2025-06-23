@@ -10,15 +10,29 @@ import {
   Modal,
   TextInput,
   RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  Platform,
+  ActionSheetIOS,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { apiService } from '../services/apiService';
+import { useAuth } from '../context/AuthContext';
 
 export const RecetasScreen = () => {
+  const { user, notifyRecipeCreated, notifyDeletion, sendCustomNotification } = useAuth();
+  
   const [recetas, setRecetas] = useState([]);
-  const [postres, setPostres] = useState([]);
-  const [ingredientes, setIngredientes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [postres, setPostres] = useState([
+    { id: 1, nombre: 'Pastel de Chocolate (Demo)' },
+    { id: 2, nombre: 'Tarta de Frutas (Demo)' },
+    { id: 3, nombre: 'Cheesecake (Demo)' }
+  ]);
+  const [ingredientes, setIngredientes] = useState([
+    { id: 1, nombre: 'Harina de Trigo (Demo)', stock: 15 },
+    { id: 2, nombre: 'Azúcar (Demo)', stock: 8 },
+    { id: 3, nombre: 'Mantequilla (Demo)', stock: 25 }
+  ]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingReceta, setEditingReceta] = useState(null);
@@ -29,10 +43,10 @@ export const RecetasScreen = () => {
   });
 
   useEffect(() => {
-    loadData();
+    loadAllData();
   }, []);
 
-  const loadData = async () => {
+  const loadAllData = async () => {
     try {
       setLoading(true);
       const [recetasData, postresData, ingredientesData] = await Promise.all([
@@ -41,21 +55,22 @@ export const RecetasScreen = () => {
         apiService.getIngredientes(),
       ]);
       
-      setRecetas(recetasData);
-      setPostres(postresData);
-      setIngredientes(ingredientesData);
+      if (postresData.length > 0 && ingredientesData.length > 0) {
+        setRecetas(recetasData);
+        setPostres(postresData);
+        setIngredientes(ingredientesData);
+      }
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos');
-      console.error('Error loading data:', error);
+      console.log('⚠️ Servidor no disponible, manteniendo datos demo');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    await loadAllData();
   };
 
   const openAddModal = () => {
@@ -67,22 +82,94 @@ export const RecetasScreen = () => {
   const openEditModal = (receta) => {
     setEditingReceta(receta);
     setFormData({
-      idPostre: receta.idPostre.toString(),
-      idIngrediente: receta.idIngrediente.toString(),
-      cantidad: receta.cantidad.toString(),
+      idPostre: receta.idPostre?.toString() || '',
+      idIngrediente: receta.idIngrediente?.toString() || '',
+      cantidad: receta.cantidad?.toString() || '',
     });
     setModalVisible(true);
   };
 
+  const handleDelete = (receta) => {
+    // Si es administrador, eliminar directamente
+    if (user && user.rol === 'administrador') {
+      Alert.alert(
+        '🗑️ Eliminar Receta',
+        `¿Estás seguro de eliminar la receta de "${receta.postreNombre}" con "${receta.ingredienteNombre}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await apiService.deleteReceta(receta.id);
+                await loadAllData();
+                Alert.alert('✅ Éxito', 'Receta eliminada correctamente');
+              } catch (error) {
+                Alert.alert('❌ Error', 'No se pudo eliminar la receta');
+                console.error('Error deleting receta:', error);
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Si es empleado, crear solicitud de eliminación
+    if (user && user.rol === 'empleado') {
+      Alert.alert(
+        'Solicitar Eliminación',
+        `¿Solicitar eliminación de la receta "${receta.postreNombre}" con "${receta.ingredienteNombre}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Solicitar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await sendCustomNotification({
+                  title: '📋 Solicitud de Eliminación - Receta',
+                  message: `${user.nombre} solicita eliminar la receta: "${receta.postreNombre}" con "${receta.ingredienteNombre}". ¿Aprobar eliminación?`,
+                  module: 'recetas',
+                  data: {
+                    action: 'eliminar',
+                    postre: receta.postreNombre,
+                    ingrediente: receta.ingredienteNombre,
+                    cantidad: receta.cantidad,
+                    recetaId: receta.id,
+                    usuario: user.nombre,
+                    rol: user.rol,
+                    originalData: receta,
+                    requiresApproval: true
+                  }
+                });
+
+                Alert.alert(
+                  '📤 Solicitud Enviada',
+                  `Tu solicitud de eliminación de la receta "${receta.postreNombre}" ha sido enviada al administrador para su aprobación.`,
+                  [{ text: 'Entendido', style: 'default' }]
+                );
+              } catch (error) {
+                Alert.alert('❌ Error', 'No se pudo enviar la solicitud');
+                console.error('Error sending deletion request:', error);
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.idPostre || !formData.idIngrediente || !formData.cantidad) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
+      Alert.alert('Campos incompletos', 'Por favor completa todos los campos.');
       return;
     }
 
     const cantidad = parseFloat(formData.cantidad);
     if (isNaN(cantidad) || cantidad <= 0) {
-      Alert.alert('Error', 'La cantidad debe ser un número mayor a 0');
+      Alert.alert('❌ Cantidad Inválida', 'La cantidad debe ser un número mayor a 0');
       return;
     }
 
@@ -93,83 +180,144 @@ export const RecetasScreen = () => {
         cantidad: cantidad,
       };
 
-      if (editingReceta) {
-        await apiService.updateReceta(editingReceta.id, recetaData);
-      } else {
-        await apiService.createReceta(recetaData);
+      const postreNombre = postres.find(p => p.id === recetaData.idPostre)?.nombre || 'Desconocido';
+      const ingredienteNombre = ingredientes.find(i => i.id === recetaData.idIngrediente)?.nombre || 'Desconocido';
+
+      // Si es administrador, ejecutar directamente
+      if (user && user.rol === 'administrador') {
+        if (editingReceta) {
+          await apiService.updateReceta(editingReceta.id, recetaData);
+          Alert.alert('✅ Receta Actualizada', 'La receta ha sido actualizada exitosamente');
+        } else {
+          await apiService.createReceta(recetaData);
+          Alert.alert('🎉 ¡Receta Creada!', 'Nueva receta agregada exitosamente');
+        }
+        setModalVisible(false);
+        await loadAllData();
+        return;
       }
 
-      setModalVisible(false);
-      await loadData();
-      Alert.alert(
-        'Éxito',
-        editingReceta ? 'Receta actualizada' : 'Receta creada'
-      );
+      // Si es empleado, crear solicitud de aprobación
+      if (user && user.rol === 'empleado') {
+        const action = editingReceta ? 'actualizar' : 'crear';
+        const actionText = editingReceta ? 'actualización' : 'creación';
+        
+        await sendCustomNotification({
+          title: `📋 Solicitud de ${actionText} - Receta`,
+          message: `${user.nombre} solicita ${action} receta: "${postreNombre}" con ${ingredienteNombre} (${cantidad}). ¿Aprobar?`,
+          module: 'recetas',
+          data: {
+            action: action,
+            postre: postreNombre,
+            ingrediente: ingredienteNombre,
+            cantidad: cantidad,
+            recetaId: editingReceta?.id,
+            idPostre: recetaData.idPostre,
+            idIngrediente: recetaData.idIngrediente,
+            usuario: user.nombre,
+            rol: user.rol,
+            originalData: editingReceta,
+            newData: recetaData,
+            requiresApproval: true
+          }
+        });
+
+        setModalVisible(false);
+        Alert.alert(
+          '📤 Solicitud Enviada',
+          `Tu solicitud de ${actionText} de la receta "${postreNombre}" ha sido enviada al administrador para su aprobación.`,
+          [{ text: 'Entendido', style: 'default' }]
+        );
+        return;
+      }
+
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar la receta');
-      console.error('Error saving receta:', error);
+      Alert.alert('Error', 'No se pudo procesar la solicitud');
+      console.error('Error processing receta:', error);
     }
   };
 
-  const handleDelete = (receta) => {
-    Alert.alert(
-      'Confirmar',
-      `¿Estás seguro de eliminar la receta "${receta.postreNombre} - ${receta.ingredienteNombre}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiService.deleteReceta(receta.id);
-              await loadData();
-              Alert.alert('Éxito', 'Receta eliminada');
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar la receta');
-              console.error('Error deleting receta:', error);
-            }
-          },
-        },
-      ]
+  const getSelectedPostreName = () => {
+    const postre = postres.find(p => p.id.toString() === formData.idPostre);
+    return postre ? postre.nombre : 'Seleccionar Postre';
+  };
+
+  const getSelectedIngredienteName = () => {
+    const ingrediente = ingredientes.find(i => i.id.toString() === formData.idIngrediente);
+    return ingrediente ? ingrediente.nombre : 'Seleccionar Ingrediente';
+  };
+
+  const showPostrePicker = () => {
+    const options = postres.map(p => p.nombre).concat('Cancelar');
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex: options.length - 1,
+        title: 'Selecciona un Postre',
+      },
+      (index) => {
+        if (index < postres.length) {
+          const selected = postres[index];
+          setFormData({ ...formData, idPostre: selected.id.toString() });
+        }
+      }
     );
   };
 
-  const renderReceta = ({ item }) => (
+  const showIngredientePicker = () => {
+    const options = ingredientes.map(i => i.nombre).concat('Cancelar');
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex: options.length - 1,
+        title: 'Selecciona un Ingrediente',
+      },
+      (index) => {
+        if (index < ingredientes.length) {
+          const selected = ingredientes[index];
+          setFormData({ ...formData, idIngrediente: selected.id.toString() });
+        }
+      }
+    );
+  };
+
+    const renderReceta = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.cardContent}>
-        <Text style={styles.recetaTitle}>{item.postreNombre}</Text>
-        <Text style={styles.ingrediente}>📦 {item.ingredienteNombre}</Text>
-        <Text style={styles.cantidad}>Cantidad: {item.cantidad}</Text>
-      </View>
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.editButton]}
-          onPress={() => openEditModal(item)}
-        >
-          <Text style={styles.actionButtonText}>✏️</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => handleDelete(item)}
-        >
-          <Text style={styles.actionButtonText}>🗑️</Text>
-        </TouchableOpacity>
+        <View style={styles.recetaInfo}>
+          <Text style={styles.recetaTitle}>{item.postreNombre}</Text>
+          <Text style={styles.ingrediente}>📦 {item.ingredienteNombre}</Text>
+          <Text style={styles.cantidad}>Cantidad: {item.cantidad}</Text>
+        </View>
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.editButton]}
+            onPress={() => openEditModal(item)}
+          >
+            <Text style={styles.actionButtonText}>✏️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => handleDelete(item)}
+          >
+            <Text style={styles.actionButtonText}>🗑️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Cargando recetas...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>📋 Recetas</Text>
         <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
@@ -187,7 +335,14 @@ export const RecetasScreen = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No hay recetas registradas</Text>
+            <Text style={styles.emptyIcon}>📝</Text>
+            <Text style={styles.emptyMessage}>No hay recetas registradas</Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.emptyButtonText}>Crear Primera Receta</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -197,93 +352,54 @@ export const RecetasScreen = () => {
         animationType="slide"
         presentationStyle="pageSheet"
       >
-        <View style={styles.modalContainer}>
+        <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.cancelHeaderButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.cancelHeaderText}>Cancelar</Text>
+            </TouchableOpacity>
             <Text style={styles.modalTitle}>
               {editingReceta ? 'Editar Receta' : 'Nueva Receta'}
             </Text>
             <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
+              style={styles.saveHeaderButton}
+              onPress={handleSave}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={styles.saveHeaderText}>Guardar</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Postre *</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.idPostre}
-                  style={styles.picker}
-                  onValueChange={(itemValue) =>
-                    setFormData({ ...formData, idPostre: itemValue })
-                  }
-                >
-                  <Picker.Item label="Seleccionar postre..." value="" />
-                  {postres.map((postre) => (
-                    <Picker.Item
-                      key={postre.id}
-                      label={postre.nombre}
-                      value={postre.id.toString()}
-                    />
-                  ))}
-                </Picker>
-              </View>
-            </View>
+          <ScrollView style={styles.form}>
+            <Text style={styles.sectionTitle}>🧁 Seleccionar Postre</Text>
+            <TouchableOpacity style={styles.selectorButton} onPress={showPostrePicker}>
+              <Text style={styles.selectorText}>
+                🧁 {getSelectedPostreName()}
+              </Text>
+              <Text style={styles.selectorArrow}>▼</Text>
+            </TouchableOpacity>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Ingrediente *</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.idIngrediente}
-                  style={styles.picker}
-                  onValueChange={(itemValue) =>
-                    setFormData({ ...formData, idIngrediente: itemValue })
-                  }
-                >
-                  <Picker.Item label="Seleccionar ingrediente..." value="" />
-                  {ingredientes.map((ingrediente) => (
-                    <Picker.Item
-                      key={ingrediente.id}
-                      label={ingrediente.nombre}
-                      value={ingrediente.id.toString()}
-                    />
-                  ))}
-                </Picker>
-              </View>
-            </View>
+            <Text style={styles.sectionTitle}>🥫 Seleccionar Ingrediente</Text>
+            <TouchableOpacity style={styles.selectorButton} onPress={showIngredientePicker}>
+              <Text style={styles.selectorText}>
+                🥫 {getSelectedIngredienteName()}
+              </Text>
+              <Text style={styles.selectorArrow}>▼</Text>
+            </TouchableOpacity>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Cantidad *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.cantidad}
-                onChangeText={(text) => setFormData({ ...formData, cantidad: text })}
-                placeholder="Cantidad necesaria"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.formButtons}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton]}
-                onPress={handleSave}
-              >
-                <Text style={styles.saveButtonText}>Guardar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+            <Text style={styles.sectionTitle}>📏 Cantidad Necesaria</Text>
+            <TextInput
+              style={styles.quantityInput}
+              placeholder="Ej: 2.5"
+              value={formData.cantidad}
+              onChangeText={(text) => setFormData({ ...formData, cantidad: text })}
+              keyboardType="decimal-pad"
+            />
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -341,12 +457,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recetaInfo: {
     flex: 1,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  editButton: {
+    backgroundColor: '#f39c12',
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+  },
+  actionButtonText: {
+    fontSize: 16,
+    color: '#fff',
   },
   recetaTitle: {
     fontSize: 18,
@@ -364,35 +505,31 @@ const styles = StyleSheet.create({
     color: '#3498db',
     fontWeight: '600',
   },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  editButton: {
-    backgroundColor: '#f39c12',
-  },
-  deleteButton: {
-    backgroundColor: '#e74c3c',
-  },
-  actionButtonText: {
-    fontSize: 16,
-  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 50,
   },
-  emptyText: {
+  emptyIcon: {
+    fontSize: 48,
+    color: '#666',
+    marginBottom: 20,
+  },
+  emptyMessage: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  emptyButton: {
+    backgroundColor: '#3498db',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   modalContainer: {
     flex: 1,
@@ -406,78 +543,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+    paddingTop: 50,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2c3e50',
+    flex: 1,
+    textAlign: 'center',
   },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#e9ecef',
-    justifyContent: 'center',
-    alignItems: 'center',
+  cancelHeaderButton: {
+    padding: 8,
   },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#666',
+  cancelHeaderText: {
+    color: '#007AFF',
+    fontSize: 16,
+  },
+  saveHeaderButton: {
+    padding: 8,
+  },
+  saveHeaderText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   form: {
     padding: 20,
+    flex: 1,
   },
-  inputContainer: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 15,
+    marginTop: 10,
+  },
+  selectorButton: {
+    borderWidth: 2,
+    borderColor: '#3498db',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    padding: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  label: {
+  selectorText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#2c3e50',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  picker: {
-    height: 50,
-  },
-  formButtons: {
-    flexDirection: 'row',
-    gap: 15,
-    marginTop: 20,
-  },
-  button: {
+    color: '#7f8c8d',
     flex: 1,
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
   },
-  saveButton: {
-    backgroundColor: '#3498db',
+  selectorArrow: {
+    fontSize: 12,
+    color: '#3498db',
+    marginLeft: 10,
   },
-  cancelButton: {
-    backgroundColor: '#e9ecef',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
+  quantityInput: {
+    borderWidth: 2,
+    borderColor: '#3498db',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 18,
+    backgroundColor: '#fff',
+    textAlign: 'center',
     fontWeight: '600',
   },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-}); 
+});

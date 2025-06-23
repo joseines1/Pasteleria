@@ -1,0 +1,18 @@
+{
+  "react-native": {
+    "android_task": "app:assembleDebug",
+    "android_task_release": "app:assembleRelease"
+  },
+  "messaging": {
+    "android": {
+      "icon": "notification_icon",
+      "color": "#3498db",
+      "sound": "default",
+      "channel_id": "default"
+    },
+    "ios": {
+      "sound": "default",
+      "badge": true
+    }
+  }
+} 

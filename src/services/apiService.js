@@ -1,4 +1,7 @@
 // Configuración de API que se adapta al entorno
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
 const API_CONFIGS = {
   development: {
     localhost: 'http://localhost:3001',
@@ -7,36 +10,64 @@ const API_CONFIGS = {
   }
 };
 
-// Detectar si estamos en un dispositivo físico o emulador
-const isPhysicalDevice = () => {
-  // En React Native podríamos usar Device.isDevice de expo-device
-  // Por ahora, usa la configuración de red por defecto para dispositivos físicos
-  return true;
-};
-
-// Seleccionar la URL apropiada
+// Detectar el entorno automáticamente
 const getApiUrl = () => {
-  // ✅ USANDO LOCALHOST - Servidor local funcionando con Turso
-  return API_CONFIGS.development.localhost; // ✅ LOCALHOST (http://localhost:3001) - Para emulador
+  // 🔍 DETECCIÓN AUTOMÁTICA DEL ENTORNO
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const isWeb = Platform.OS === 'web';
+  const isDev = __DEV__;
   
-  // 📝 Otras opciones disponibles:
-  // return API_CONFIGS.development.network; // Para dispositivos físicos en red local (192.168.1.74:3001)
-  // return API_CONFIGS.development.heroku; // Para producción (Heroku)
+  console.log('🔍 Detectando entorno...');
+  console.log('- Platform:', Platform.OS);
+  console.log('- __DEV__:', isDev);
+  console.log('- App Ownership:', Constants.appOwnership);
+  console.log('- Is Expo Go:', isExpoGo);
+  console.log('- Debug Remote JS:', Constants.debugRemoteJS);
+  
+  // 🌐 LÓGICA DE SELECCIÓN DE URL
+  if (isWeb) {
+    // En web, siempre usar Heroku (no puede acceder a localhost)
+    console.log('🌐 Detected: WEB - Using Heroku');
+    return API_CONFIGS.development.heroku;
+  }
+  
+  if (isExpoGo) {
+    // En Expo Go (dispositivo físico), usar Heroku para evitar problemas de red
+    console.log('📱 Detected: EXPO GO - Using Heroku');
+    return API_CONFIGS.development.heroku;
+  }
+  
+  if (Platform.OS === 'android' || Platform.OS === 'ios') {
+    // En emulador o build nativo, usar localhost primero, luego Heroku
+    if (isDev) {
+      console.log('🤖 Detected: EMULATOR/DEV BUILD - Using localhost');
+      return API_CONFIGS.development.localhost;
+    } else {
+      console.log('📦 Detected: PRODUCTION BUILD - Using Heroku');
+      return API_CONFIGS.development.heroku;
+    }
+  }
+  
+  // Default: Heroku (más confiable)
+  console.log('🌐 Default: Using Heroku');
+  return API_CONFIGS.development.heroku;
 };
 
 const API_BASE_URL = getApiUrl();
 
-console.log('🔗 Usando API URL:', API_BASE_URL);
-console.log('🚀 Conectado a Localhost - Turso Database');
+console.log('🔗 API URL seleccionada:', API_BASE_URL);
+console.log('🚀 Configuración de API cargada');
 
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
     this.token = null;
+    console.log('🏗️ ApiService inicializado con:', this.baseURL);
   }
 
   setAuthToken(token) {
     this.token = token;
+    console.log('🔑 Token de auth configurado:', token ? 'SÍ' : 'NO');
   }
 
   async makeRequest(endpoint, options = {}) {
@@ -55,23 +86,50 @@ class ApiService {
       headers,
     };
 
+    console.log('📤 API Request:', {
+      method: options.method || 'GET',
+      url: url,
+      hasToken: !!this.token,
+      headers: Object.keys(headers)
+    });
+
     try {
       const response = await fetch(url, config);
+      
+      console.log('📥 API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      });
+      
       const data = await response.json();
       
       if (!response.ok) {
+        console.error('❌ API Error Response:', {
+          status: response.status,
+          data: data,
+          url: url
+        });
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
       
+      console.log('✅ API Success:', { endpoint, dataKeys: Object.keys(data) });
       return data;
     } catch (error) {
-      console.error('API Request Error:', error);
+      console.error('❌ API Request Error:', {
+        endpoint,
+        url,
+        error: error.message,
+        name: error.name
+      });
       throw error;
     }
   }
 
   // Auth endpoints
   async login(email, password) {
+    console.log('🔐 Intentando login con:', { email, hasPassword: !!password });
     return this.makeRequest('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),

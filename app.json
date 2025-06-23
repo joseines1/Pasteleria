@@ -2,11 +2,12 @@
   "expo": {
     "name": "Pastelería App",
     "slug": "pasteleria-app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "pasteleria-app",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -33,19 +34,15 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.pasteleria.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ],
       "useNextNotificationsApi": true,
-      "runtimeVersion": "1.0.0"
+      "runtimeVersion": "1.1.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -57,15 +54,7 @@
       "androidCollapsedTitle": "Pastelería Updates"
     },
     "plugins": [
-      "expo-build-properties",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#FF6B6B",
-          "mode": "production"
-        }
-      ]
+      "expo-dev-client"
     ],
     "extra": {
       "eas": {

@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('admin@test.com');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('123456');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
 
@@ -84,8 +84,8 @@ export const LoginScreen = () => {
 
           <View style={styles.demoCredentials}>
             <Text style={styles.demoTitle}>Credenciales de Demo:</Text>
-            <Text style={styles.demoText}>👑 Admin: admin@test.com / admin123</Text>
-            <Text style={styles.demoText}>👷 Empleado: empleado@test.com / emp123</Text>
+            <Text style={styles.demoText}>👑 Admin: admin@test.com / 123456</Text>
+            <Text style={styles.demoText}>👷 Empleado: empleado@test.com / 123456</Text>
           </View>
         </View>
       </View>

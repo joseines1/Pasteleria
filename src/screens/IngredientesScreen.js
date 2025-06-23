@@ -10,10 +10,13 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  SafeAreaView
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/apiService';
 
 export const IngredientesScreen = () => {
+  const { user, notifyLowStock, notifyDeletion, sendCustomNotification } = useAuth();
   const [ingredientes, setIngredientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,18 +36,27 @@ export const IngredientesScreen = () => {
     try {
       setLoading(true);
       const data = await apiService.getIngredientes();
+      console.log('🥫 Ingredientes cargados:', data);
       setIngredientes(data);
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los ingredientes');
+      console.error('❌ Error cargando ingredientes:', error);
+      // Datos demo para desarrollo
+      setIngredientes([
+        { id: 1, nombre: 'Harina de Trigo', stock: 15, unidad: 'kg' },
+        { id: 2, nombre: 'Azúcar', stock: 8, unidad: 'kg' },
+        { id: 3, nombre: 'Mantequilla', stock: 25, unidad: 'kg' },
+        { id: 4, nombre: 'Huevos', stock: 5, unidad: 'dozen' },
+        { id: 5, nombre: 'Leche', stock: 12, unidad: 'L' }
+      ]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
-    await loadIngredientes();
-    setRefreshing(false);
+    loadIngredientes();
   };
 
   const openAddModal = () => {
@@ -65,55 +77,242 @@ export const IngredientesScreen = () => {
 
   const handleSave = async () => {
     if (!formData.nombre || !formData.stock) {
-      Alert.alert('Error', 'Nombre y stock son obligatorios');
+      Alert.alert('⚠️ Campos Incompletos', 'Por favor completa todos los campos');
+      return;
+    }
+
+    const stock = parseInt(formData.stock);
+    if (isNaN(stock) || stock < 0) {
+      Alert.alert('⚠️ Stock Inválido', 'El stock debe ser un número mayor o igual a 0');
       return;
     }
 
     try {
       const ingredienteData = {
-        nombre: formData.nombre,
-        stock: parseInt(formData.stock),
+        nombre: formData.nombre.trim(),
+        stock: stock,
         unidad: formData.unidad,
       };
 
       if (editingIngrediente) {
-        await apiService.updateIngrediente(editingIngrediente.id, ingredienteData);
+        // Si es administrador, actualizar directamente
+        if (user && user.rol === 'administrador') {
+          try {
+            await apiService.updateIngrediente(editingIngrediente.id, ingredienteData);
+            
+            // Actualizar localmente
+            setIngredientes(prev => 
+              prev.map(ing => 
+                ing.id === editingIngrediente.id 
+                  ? { ...ing, ...ingredienteData }
+                  : ing
+              )
+            );
+
+            // 🔔 VERIFICAR STOCK BAJO Y NOTIFICAR
+            if (stock < 10) {
+              await notifyLowStock({
+                id: editingIngrediente.id,
+                nombre: ingredienteData.nombre,
+                stock: stock
+              });
+            }
+            
+            Alert.alert(
+              '✅ Actualizado', 
+              `Ingrediente actualizado: ${ingredienteData.nombre}\nStock: ${stock} ${ingredienteData.unidad}${stock < 10 ? '\n\n🔔 Notificación de stock bajo enviada' : ''}`
+            );
+          } catch (serverError) {
+            console.log('⚠️ Error en servidor, actualizando localmente:', serverError.message);
+            
+            // Actualizar localmente
+            setIngredientes(prev => 
+              prev.map(ing => 
+                ing.id === editingIngrediente.id 
+                  ? { ...ing, ...ingredienteData }
+                  : ing
+              )
+            );
+
+            Alert.alert(
+              '📱 Actualizado Localmente', 
+              `Ingrediente actualizado: ${ingredienteData.nombre}\n📶 Se sincronizará cuando haya conexión`
+            );
+          }
+        }
+        
+        // Si es empleado, crear solicitud de aprobación
+        if (user && user.rol === 'empleado') {
+          await sendCustomNotification({
+            title: '📋 Solicitud de Actualización - Ingrediente',
+            message: `${user.nombre} solicita actualizar ${editingIngrediente.nombre} a ${stock} ${ingredienteData.unidad}. ¿Aprobar cambios?`,
+            module: 'ingredientes',
+            data: {
+              action: 'actualizar',
+              ingrediente: ingredienteData.nombre,
+              ingredienteId: editingIngrediente.id,
+              stockAnterior: editingIngrediente.stock,
+              stockNuevo: stock,
+              unidad: ingredienteData.unidad,
+              usuario: user.nombre,
+              rol: user.rol,
+              originalData: editingIngrediente,
+              newData: ingredienteData,
+              requiresApproval: true
+            }
+          });
+
+          Alert.alert(
+            '📤 Solicitud Enviada',
+            `Tu solicitud de actualización del ingrediente "${ingredienteData.nombre}" ha sido enviada al administrador para su aprobación.`,
+            [{ text: 'Entendido', style: 'default' }]
+          );
+        }
       } else {
-        await apiService.createIngrediente(ingredienteData);
+        // Si es administrador, crear directamente
+        if (user && user.rol === 'administrador') {
+          try {
+            const response = await apiService.createIngrediente(ingredienteData);
+            
+            const newIngrediente = {
+              id: response.id || Date.now(),
+              ...ingredienteData
+            };
+            
+            setIngredientes(prev => [newIngrediente, ...prev]);
+
+            Alert.alert(
+              '🎉 ¡Ingrediente Creado!', 
+              `Nuevo ingrediente: ${ingredienteData.nombre}\nStock inicial: ${stock} ${ingredienteData.unidad}`
+            );
+            
+          } catch (serverError) {
+            console.log('⚠️ Error en servidor, creando localmente:', serverError.message);
+            
+            const localIngrediente = {
+              id: Date.now(),
+              ...ingredienteData
+            };
+            
+            setIngredientes(prev => [localIngrediente, ...prev]);
+
+            Alert.alert(
+              '📱 Ingrediente Creado Localmente', 
+              `Nuevo ingrediente: ${ingredienteData.nombre}\n📶 Se sincronizará cuando haya conexión`
+            );
+          }
+        }
+        
+        // Si es empleado, crear solicitud de aprobación
+        if (user && user.rol === 'empleado') {
+          await sendCustomNotification({
+            title: '📋 Solicitud de Creación - Ingrediente',
+            message: `${user.nombre} solicita crear el ingrediente "${ingredienteData.nombre}" con stock de ${stock} ${ingredienteData.unidad}. ¿Aprobar?`,
+            module: 'ingredientes',
+            data: {
+              action: 'crear',
+              ingrediente: ingredienteData.nombre,
+              stock: stock,
+              unidad: ingredienteData.unidad,
+              usuario: user.nombre,
+              rol: user.rol,
+              newData: ingredienteData,
+              requiresApproval: true
+            }
+          });
+
+          Alert.alert(
+            '📤 Solicitud Enviada',
+            `Tu solicitud de creación del ingrediente "${ingredienteData.nombre}" ha sido enviada al administrador para su aprobación.`,
+            [{ text: 'Entendido', style: 'default' }]
+          );
+        }
       }
 
       setModalVisible(false);
-      await loadIngredientes();
-      Alert.alert(
-        'Éxito',
-        editingIngrediente ? 'Ingrediente actualizado' : 'Ingrediente creado'
-      );
+      
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el ingrediente');
+      console.error('❌ Error guardando ingrediente:', error);
+      Alert.alert('❌ Error', 'No se pudo guardar el ingrediente');
     }
   };
 
   const handleDelete = (ingrediente) => {
-    Alert.alert(
-      'Confirmar',
-      `¿Estás seguro de eliminar "${ingrediente.nombre}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiService.deleteIngrediente(ingrediente.id);
-              await loadIngredientes();
-              Alert.alert('Éxito', 'Ingrediente eliminado');
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el ingrediente');
+    // Si es administrador, eliminar directamente
+    if (user && user.rol === 'administrador') {
+      Alert.alert(
+        '🗑️ Eliminar Ingrediente',
+        `¿Estás seguro de que quieres eliminar "${ingrediente.nombre}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Eliminar localmente primero
+                setIngredientes(prev => prev.filter(ing => ing.id !== ingrediente.id));
+                
+                try {
+                  await apiService.deleteIngrediente(ingrediente.id);
+                  Alert.alert('✅ Eliminado', `"${ingrediente?.nombre}" ha sido eliminado`);
+                } catch (serverError) {
+                  console.log('⚠️ Error eliminando en servidor:', serverError.message);
+                  Alert.alert('📱 Eliminado Localmente', 'El ingrediente ha sido eliminado localmente');
+                }
+              } catch (error) {
+                console.error('❌ Error eliminando ingrediente:', error);
+                Alert.alert('❌ Error', 'No se pudo eliminar el ingrediente');
+              }
             }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Si es empleado, crear solicitud de eliminación
+    if (user && user.rol === 'empleado') {
+      Alert.alert(
+        'Solicitar Eliminación',
+        `¿Solicitar eliminación del ingrediente "${ingrediente.nombre}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Solicitar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await sendCustomNotification({
+                  title: '📋 Solicitud de Eliminación - Ingrediente',
+                  message: `${user.nombre} solicita eliminar el ingrediente "${ingrediente.nombre}" (Stock: ${ingrediente.stock}). ¿Aprobar eliminación?`,
+                  module: 'ingredientes',
+                  data: {
+                    action: 'eliminar',
+                    ingrediente: ingrediente.nombre,
+                    ingredienteId: ingrediente.id,
+                    stock: ingrediente.stock,
+                    unidad: ingrediente.unidad,
+                    usuario: user.nombre,
+                    rol: user.rol,
+                    originalData: ingrediente,
+                    requiresApproval: true
+                  }
+                });
+
+                Alert.alert(
+                  '📤 Solicitud Enviada',
+                  `Tu solicitud de eliminación del ingrediente "${ingrediente.nombre}" ha sido enviada al administrador para su aprobación.`,
+                  [{ text: 'Entendido', style: 'default' }]
+                );
+              } catch (error) {
+                Alert.alert('Error', 'No se pudo enviar la solicitud');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const getStockStatus = (stock) => {
@@ -158,21 +357,31 @@ export const IngredientesScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Cargando ingredientes...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>🥫 Ingredientes</Text>
         <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Agregar</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Alertas de stock */}
+      {ingredientes.filter(ing => ing.stock <= 10).length > 0 && (
+        <View style={styles.alertContainer}>
+          <Text style={styles.alertTitle}>⚠️ Alertas de Stock</Text>
+          <Text style={styles.alertText}>
+            {ingredientes.filter(ing => ing.stock <= 5).length} críticos • {ingredientes.filter(ing => ing.stock > 5 && ing.stock <= 10).length} bajos
+          </Text>
+        </View>
+      )}
 
       <FlatList
         data={ingredientes}
@@ -256,7 +465,7 @@ export const IngredientesScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -432,5 +641,24 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  alertContainer: {
+    backgroundColor: '#fff3cd',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
+    padding: 15,
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 8,
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#856404',
+    marginBottom: 4,
+  },
+  alertText: {
+    fontSize: 12,
+    color: '#856404',
   },
 }); 

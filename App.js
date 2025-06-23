@@ -25,6 +25,8 @@ const LoadingScreen = () => (
 
 // Main Tab Navigator
 const MainTabs = () => {
+  const { user } = useAuth();
+  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -89,16 +91,19 @@ const MainTabs = () => {
           ),
         }}
       />
-      <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{
-          title: 'Notificaciones',
-          tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>🔔</Text>
-          ),
-        }}
-      />
+      {/* Solo mostrar panel admin a administradores */}
+      {user?.rol === 'administrador' && (
+        <Tab.Screen
+          name="Notifications"
+          component={NotificationsScreen}
+          options={{
+            title: 'Panel Admin',
+            tabBarIcon: ({ color, size }) => (
+              <Text style={{ fontSize: size, color }}>👑</Text>
+            ),
+          }}
+        />
+      )}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}

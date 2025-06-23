@@ -12,8 +12,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { apiService } from '../services/apiService';
+import { useAuth } from '../context/AuthContext';
 
 export const PostresScreen = () => {
+  const { user, notifyDeletion, sendCustomNotification } = useAuth();
   const [postres, setPostres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,44 +75,122 @@ export const PostresScreen = () => {
         descripcion: formData.descripcion,
       };
 
-      if (editingPostre) {
-        await apiService.updatePostre(editingPostre.id, postreData);
-      } else {
-        await apiService.createPostre(postreData);
+      // Si es administrador, ejecutar directamente
+      if (user && user.rol === 'administrador') {
+        if (editingPostre) {
+          await apiService.updatePostre(editingPostre.id, postreData);
+          Alert.alert('✅ Éxito', 'Postre actualizado');
+        } else {
+          await apiService.createPostre(postreData);
+          Alert.alert('✅ Éxito', 'Postre creado');
+        }
+        setModalVisible(false);
+        await loadPostres();
+        return;
       }
 
-      setModalVisible(false);
-      await loadPostres();
-      Alert.alert(
-        'Éxito',
-        editingPostre ? 'Postre actualizado' : 'Postre creado'
-      );
+      // Si es empleado, crear solicitud de aprobación
+      if (user && user.rol === 'empleado') {
+        const action = editingPostre ? 'actualizar' : 'crear';
+        const actionText = editingPostre ? 'actualización' : 'creación';
+        
+        await sendCustomNotification({
+          title: `📋 Solicitud de ${actionText} - Postre`,
+          message: `${user.nombre} solicita ${action} el postre "${formData.nombre}". ¿Aprobar?`,
+          module: 'postres',
+          data: {
+            action: action,
+            postre: formData.nombre,
+            descripcion: formData.descripcion,
+            postreId: editingPostre?.id,
+            usuario: user.nombre,
+            rol: user.rol,
+            originalData: editingPostre,
+            newData: postreData,
+            requiresApproval: true
+          }
+        });
+
+        setModalVisible(false);
+        Alert.alert(
+          '📤 Solicitud Enviada',
+          `Tu solicitud de ${actionText} del postre "${formData.nombre}" ha sido enviada al administrador para su aprobación.`,
+          [{ text: 'Entendido', style: 'default' }]
+        );
+        return;
+      }
+
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el postre');
+      Alert.alert('Error', 'No se pudo procesar la solicitud');
     }
   };
 
   const handleDelete = (postre) => {
-    Alert.alert(
-      'Confirmar',
-      `¿Estás seguro de eliminar "${postre.nombre}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiService.deletePostre(postre.id);
-              await loadPostres();
-              Alert.alert('Éxito', 'Postre eliminado');
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el postre');
-            }
+    // Si es administrador, eliminar directamente
+    if (user && user.rol === 'administrador') {
+      Alert.alert(
+        'Confirmar Eliminación',
+        `¿Estás seguro de eliminar "${postre.nombre}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await apiService.deletePostre(postre.id);
+                await loadPostres();
+                Alert.alert('✅ Éxito', 'Postre eliminado');
+              } catch (error) {
+                Alert.alert('Error', 'No se pudo eliminar el postre');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+      return;
+    }
+
+    // Si es empleado, crear solicitud de eliminación
+    if (user && user.rol === 'empleado') {
+      Alert.alert(
+        'Solicitar Eliminación',
+        `¿Solicitar eliminación de "${postre.nombre}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Solicitar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await sendCustomNotification({
+                  title: '📋 Solicitud de Eliminación - Postre',
+                  message: `${user.nombre} solicita eliminar el postre "${postre.nombre}". ¿Aprobar eliminación?`,
+                  module: 'postres',
+                  data: {
+                    action: 'eliminar',
+                    postre: postre.nombre,
+                    postreId: postre.id,
+                    usuario: user.nombre,
+                    rol: user.rol,
+                    originalData: postre,
+                    requiresApproval: true
+                  }
+                });
+
+                Alert.alert(
+                  '📤 Solicitud Enviada',
+                  `Tu solicitud de eliminación del postre "${postre.nombre}" ha sido enviada al administrador para su aprobación.`,
+                  [{ text: 'Entendido', style: 'default' }]
+                );
+              } catch (error) {
+                Alert.alert('Error', 'No se pudo enviar la solicitud');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const renderPostre = ({ item }) => (
