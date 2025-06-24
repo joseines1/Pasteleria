@@ -1,68 +1,26 @@
-// Configuración de API que se adapta al entorno
+// 🌐 Configuración API - SERVIDOR HEROKU
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-const API_CONFIGS = {
-  development: {
-    localhost: 'http://localhost:3001',
-    network: 'http://192.168.1.74:3001',
-    heroku: 'https://pasteleria-c6865951d4d7.herokuapp.com'
-  }
-};
+// ✅ SERVIDOR HEROKU EN PRODUCCIÓN
+const HEROKU_API_URL = 'https://pasteleria-c6865951d4d7.herokuapp.com';
 
-// Detectar el entorno automáticamente
-const getApiUrl = () => {
-  // 🔍 DETECCIÓN AUTOMÁTICA DEL ENTORNO
-  const isExpoGo = Constants.appOwnership === 'expo';
-  const isWeb = Platform.OS === 'web';
-  const isDev = __DEV__;
-  
-  console.log('🔍 Detectando entorno...');
-  console.log('- Platform:', Platform.OS);
-  console.log('- __DEV__:', isDev);
-  console.log('- App Ownership:', Constants.appOwnership);
-  console.log('- Is Expo Go:', isExpoGo);
-  console.log('- Debug Remote JS:', Constants.debugRemoteJS);
-  
-  // 🌐 LÓGICA DE SELECCIÓN DE URL
-  if (isWeb) {
-    // En web, siempre usar Heroku (no puede acceder a localhost)
-    console.log('🌐 Detected: WEB - Using Heroku');
-    return API_CONFIGS.development.heroku;
-  }
-  
-  if (isExpoGo) {
-    // En Expo Go (dispositivo físico), usar Heroku para evitar problemas de red
-    console.log('📱 Detected: EXPO GO - Using Heroku');
-    return API_CONFIGS.development.heroku;
-  }
-  
-  if (Platform.OS === 'android' || Platform.OS === 'ios') {
-    // En emulador o build nativo, usar localhost primero, luego Heroku
-    if (isDev) {
-      console.log('🤖 Detected: EMULATOR/DEV BUILD - Using localhost');
-      return API_CONFIGS.development.localhost;
-    } else {
-      console.log('📦 Detected: PRODUCTION BUILD - Using Heroku');
-      return API_CONFIGS.development.heroku;
-    }
-  }
-  
-  // Default: Heroku (más confiable)
-  console.log('🌐 Default: Using Heroku');
-  return API_CONFIGS.development.heroku;
-};
-
-const API_BASE_URL = getApiUrl();
-
-console.log('🔗 API URL seleccionada:', API_BASE_URL);
-console.log('🚀 Configuración de API cargada');
+console.log('🌐 CONFIGURACIÓN: Usando servidor HEROKU');
+console.log('🔗 API URL:', HEROKU_API_URL);
+console.log('📱 Plataforma:', Platform.OS);
+console.log('☁️ Conectando a servidor en la nube');
+console.log('🚀 Configuración cargada');
 
 class ApiService {
   constructor() {
-    this.baseURL = API_BASE_URL;
+    this.baseURL = HEROKU_API_URL;
     this.token = null;
-    console.log('🏗️ ApiService inicializado con:', this.baseURL);
+    console.log('🏗️ ApiService inicializado con servidor Heroku:', this.baseURL);
+  }
+
+  setBaseUrl(url) {
+    this.baseURL = url;
+    console.log('🔄 Base URL actualizada a:', this.baseURL);
   }
 
   setAuthToken(token) {
@@ -84,19 +42,26 @@ class ApiService {
     const config = {
       ...options,
       headers,
+      timeout: 30000, // 30 segundos para servidor Heroku
     };
 
-    console.log('📤 API Request:', {
+    console.log('📤 Heroku API Request:', {
       method: options.method || 'GET',
       url: url,
       hasToken: !!this.token,
-      headers: Object.keys(headers)
+      timeout: config.timeout
     });
 
     try {
-      const response = await fetch(url, config);
+      // Crear promise con timeout para servidor Heroku
+      const fetchPromise = fetch(url, config);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Heroku server timeout después de ${config.timeout}ms`)), config.timeout)
+      );
+
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
       
-      console.log('📥 API Response:', {
+      console.log('📥 Heroku API Response:', {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
@@ -106,7 +71,7 @@ class ApiService {
       const data = await response.json();
       
       if (!response.ok) {
-        console.error('❌ API Error Response:', {
+        console.error('❌ Heroku API Error:', {
           status: response.status,
           data: data,
           url: url
@@ -114,15 +79,16 @@ class ApiService {
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
       
-      console.log('✅ API Success:', { endpoint, dataKeys: Object.keys(data) });
+      console.log('✅ Heroku API Success:', { endpoint, dataKeys: Object.keys(data) });
       return data;
     } catch (error) {
-      console.error('❌ API Request Error:', {
+      console.error('❌ Heroku API Request Error:', {
         endpoint,
         url,
         error: error.message,
         name: error.name
       });
+      
       throw error;
     }
   }

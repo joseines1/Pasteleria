@@ -108,15 +108,26 @@ export const AuthProvider = ({ children }) => {
       
       console.log('✅ Login exitoso:', userData);
       
-      // Guardar datos del usuario
+      // Guardar token de auth y datos del usuario
+      const authToken = response.token;
+      if (authToken) {
+        await AsyncStorage.setItem('authToken', authToken);
+        apiService.setAuthToken(authToken);
+      }
+      
       setUser(userData);
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
       
       // Inicializar notificaciones con el usuario actual
       try {
         console.log('🔔 Inicializando notificaciones para usuario:', userData.nombre);
         const notificationResult = await notificationService.initialize(userData);
         console.log('🔔 Resultado inicialización notificaciones:', notificationResult);
+        
+        // Actualizar push token en servidor con token de auth
+        if (authToken) {
+          await notificationService.updateTokenAfterLogin(userData, authToken);
+        }
       } catch (notificationError) {
         console.log('⚠️ Error inicializando notificaciones (continuando sin ellas):', notificationError.message);
       }

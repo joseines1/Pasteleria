@@ -1,10 +1,12 @@
 node_modules/
-android/build/
-android/.gradle/
-android/app/build/
+android/
+ios/
 .expo/
 .git/
 *.log
 *.tmp
 .vscode/
-.idea/ 
+.idea/
+test-*.js
+setup-*.js
+*.md 

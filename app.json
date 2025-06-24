@@ -18,7 +18,19 @@
       "bundleIdentifier": "com.pasteleria.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Esta app puede usar la cámara para escanear códigos QR.",
-        "NSMicrophoneUsageDescription": "Esta app puede usar el micrófono para notificaciones."
+        "NSMicrophoneUsageDescription": "Esta app puede usar el micrófono para notificaciones.",
+        "NSUserNotificationsUsageDescription": "Esta app necesita enviar notificaciones push para mantenerlo informado sobre nuevos ingredientes y postres.",
+        "UIBackgroundModes": ["remote-notification", "background-processing"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSExceptionRequiresForwardSecrecy": false
+            }
+          }
+        }
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -54,7 +66,14 @@
       "androidCollapsedTitle": "Pastelería Updates"
     },
     "plugins": [
-      "expo-dev-client"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B6B",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "extra": {
       "eas": {

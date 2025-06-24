@@ -185,17 +185,17 @@ export const RecetasScreen = () => {
 
       // Si es administrador, ejecutar directamente
       if (user && user.rol === 'administrador') {
-        if (editingReceta) {
-          await apiService.updateReceta(editingReceta.id, recetaData);
+      if (editingReceta) {
+        await apiService.updateReceta(editingReceta.id, recetaData);
           Alert.alert('✅ Receta Actualizada', 'La receta ha sido actualizada exitosamente');
-        } else {
-          await apiService.createReceta(recetaData);
+      } else {
+        await apiService.createReceta(recetaData);
           Alert.alert('🎉 ¡Receta Creada!', 'Nueva receta agregada exitosamente');
-        }
-        setModalVisible(false);
-        await loadAllData();
-        return;
       }
+      setModalVisible(false);
+      await loadAllData();
+      return;
+    }
 
       // Si es empleado, crear solicitud de aprobación
       if (user && user.rol === 'empleado') {
@@ -230,7 +230,7 @@ export const RecetasScreen = () => {
         );
         return;
       }
-
+      
     } catch (error) {
       Alert.alert('Error', 'No se pudo procesar la solicitud');
       console.error('Error processing receta:', error);
@@ -281,27 +281,27 @@ export const RecetasScreen = () => {
     );
   };
 
-    const renderReceta = ({ item }) => (
+  const renderReceta = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.cardContent}>
         <View style={styles.recetaInfo}>
-          <Text style={styles.recetaTitle}>{item.postreNombre}</Text>
-          <Text style={styles.ingrediente}>📦 {item.ingredienteNombre}</Text>
-          <Text style={styles.cantidad}>Cantidad: {item.cantidad}</Text>
-        </View>
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={() => openEditModal(item)}
-          >
-            <Text style={styles.actionButtonText}>✏️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
+        <Text style={styles.recetaTitle}>{item.postreNombre}</Text>
+        <Text style={styles.ingrediente}>📦 {item.ingredienteNombre}</Text>
+        <Text style={styles.cantidad}>Cantidad: {item.cantidad}</Text>
+      </View>
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.editButton]}
+          onPress={() => openEditModal(item)}
+        >
+          <Text style={styles.actionButtonText}>✏️</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.deleteButton]}
             onPress={() => handleDelete(item)}
-          >
-            <Text style={styles.actionButtonText}>🗑️</Text>
-          </TouchableOpacity>
+        >
+          <Text style={styles.actionButtonText}>🗑️</Text>
+        </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -389,12 +389,12 @@ export const RecetasScreen = () => {
             </TouchableOpacity>
 
             <Text style={styles.sectionTitle}>📏 Cantidad Necesaria</Text>
-            <TextInput
-              style={styles.quantityInput}
+              <TextInput
+                style={styles.quantityInput}
               placeholder="Ej: 2.5"
-              value={formData.cantidad}
-              onChangeText={(text) => setFormData({ ...formData, cantidad: text })}
-              keyboardType="decimal-pad"
+                value={formData.cantidad}
+                onChangeText={(text) => setFormData({ ...formData, cantidad: text })}
+                keyboardType="decimal-pad"
             />
           </ScrollView>
         </SafeAreaView>
