@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pasteleria.app",
+      "buildNumber": "1.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "Esta app puede usar la cámara para escanear códigos QR.",
         "NSMicrophoneUsageDescription": "Esta app puede usar el micrófono para notificaciones.",
@@ -28,6 +29,11 @@
               "NSExceptionAllowsInsecureHTTPLoads": true,
               "NSExceptionMinimumTLSVersion": "1.0",
               "NSExceptionRequiresForwardSecrecy": false
+            },
+            "pasteleria-c6865951d4d7.herokuapp.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionMinimumTLSVersion": "1.2",
+              "NSExceptionRequiresForwardSecrecy": true
             }
           }
         }
@@ -35,9 +41,7 @@
       "config": {
         "usesNonExemptEncryption": false
       },
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
+      "runtimeVersion": "1.1.0"
     },
     "android": {
       "adaptiveIcon": {

@@ -6,7 +6,13 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:ios": "node build-ios.js",
+    "build:ios:dev": "node build-ios.js development",
+    "build:ios:preview": "node build-ios.js preview",
+    "build:ios:prod": "node build-ios.js production",
+    "build:android": "npx eas build --platform android --profile preview",
+    "build:status": "npx eas build:list"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
