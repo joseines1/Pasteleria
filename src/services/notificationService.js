@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from './apiService';
+import Constants from 'expo-constants';
 
 // Configurar el comportamiento de las notificaciones
 Notifications.setNotificationHandler({
@@ -26,49 +27,31 @@ class NotificationService {
 
   async initialize(user) {
     try {
-      console.log('🔔 Inicializando sistema de notificaciones...');
-      console.log('👤 Usuario:', user ? { id: user.id, nombre: user.nombre, rol: user.rol } : 'undefined');
+      // Guardar información del usuario
+      this.userId = user?.id;
+      this.userName = user?.nombre;
+      this.userRole = user?.rol;
       
-      if (!user || !user.nombre) {
-        console.log('⚠️ Usuario no válido, usando notificaciones locales solamente');
-        this.isInitialized = true;
-        return { success: true, mode: 'local-only' };
-      }
-
-      this.userId = user.id;
-      this.userName = user.nombre;
-      this.userRole = user.rol;
-
       // Configurar notificaciones locales
-        await this.setupLocalNotifications();
-
-      // Intentar configurar push notifications
+      await this.setupLocalNotifications();
+      
+      // Configurar push notifications si estamos en un dispositivo físico
       if (Device.isDevice) {
-        try {
-          await this.setupPushNotifications();
-        } catch (error) {
-          console.log('⚠️ Push notifications no disponibles, usando solo locales:', error.message);
-        }
+        await this.setupPushNotifications();
       } else {
-        console.log('📱 Simulador detectado - solo notificaciones locales');
+        // Solo notificaciones locales para simuladores
       }
-
+      
       // Configurar listeners
       this.setupNotificationListeners();
-
-      this.isInitialized = true;
-      console.log('✅ Sistema de notificaciones inicializado');
-
-      return {
-        success: true,
-        pushToken: this.expoPushToken,
-        mode: this.expoPushToken ? 'push-enabled' : 'local-only'
-      };
-
+      
+      this.initialized = true;
+      return { success: true };
     } catch (error) {
-      console.error('❌ Error inicializando notificaciones:', error);
-      this.isInitialized = true; // Permitir notificaciones locales
-      return { success: false, error: error.message, mode: 'local-only' };
+      console.error('❌ Error inicializando servicio de notificaciones:', error);
+      // Continuar sin notificaciones push
+      this.initialized = true;
+      return { success: false, error: error.message };
     }
   }
 
@@ -98,133 +81,76 @@ class NotificationService {
 
   async setupPushNotifications() {
     try {
-      // Configuración específica para iOS
       if (Platform.OS === 'ios') {
-        console.log('🍎 Configurando notificaciones push para iOS...');
-        
-        // Verificar que el dispositivo soporte notificaciones push
-        if (!Device.isDevice) {
-          throw new Error('Las notificaciones push requieren un dispositivo físico');
-        }
-
-        // Solicitar permisos específicos para iOS
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
         
         if (existingStatus !== 'granted') {
-          console.log('📱 Solicitando permisos de notificación para iOS...');
-          const { status } = await Notifications.requestPermissionsAsync({
-            ios: {
-              allowAlert: true,
-              allowBadge: true,
-              allowSound: true,
-              allowDisplayInCarPlay: true,
-              allowCriticalAlerts: false,
-              allowProvisional: false,
-              allowAnnouncements: true,
-            },
-          });
+          const { status } = await Notifications.requestPermissionsAsync();
           finalStatus = status;
         }
-
+        
         if (finalStatus !== 'granted') {
-          throw new Error('Permisos de notificación denegados en iOS');
+          return;
         }
-
-        console.log('✅ Permisos de notificación iOS concedidos');
       }
 
-      // Obtener token de Expo Push Notifications
-      const token = (await Notifications.getExpoPushTokenAsync({
-        projectId: '5ca808a7-4102-42e5-aae3-cf083ed6e243'
-      })).data;
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig?.extra?.eas?.projectId
+      });
       
-      this.expoPushToken = token;
+      this.expoPushToken = token.data;
       
-      console.log('🔑 Expo Push Token obtenido:', token);
-      
-      // Guardar token localmente
-      await AsyncStorage.setItem('expo_push_token', token);
-      
-      // Intentar enviar token al servidor
-      try {
-        await this.updatePushTokenOnServer(token);
-        console.log('✅ Push token actualizado en servidor');
-      } catch (error) {
-        console.log('⚠️ No se pudo actualizar token en servidor:', error.message);
+      // Actualizar token en el servidor si tenemos usuario
+      if (this.userId) {
+        await this.updatePushTokenOnServer(token.data);
       }
-
-      return token;
+      
+      return token.data;
     } catch (error) {
       console.error('❌ Error configurando push notifications:', error);
-      throw error;
+      return null;
     }
   }
 
   async updatePushTokenOnServer(token) {
     try {
-      // Solo actualizar en servidor si tenemos token de auth y datos de usuario
-      if (!this.userId || !this.userName) {
-        console.log('ℹ️ Sin datos de usuario - saltando actualización en servidor');
-        return;
+      if (!token || !this.userId) {
+        return { success: false, error: 'Token o usuario no disponible' };
       }
 
-      // Verificar que el apiService tenga token de auth
-      if (!apiService.token) {
-        console.log('ℹ️ Sin token de auth - saltando actualización en servidor');
-        return;
-      }
-
-      console.log('📤 Actualizando push token en servidor...', {
-        userId: this.userId,
-        userName: this.userName,
-        platform: Platform.OS
-      });
-
-      await apiService.makeRequest('/auth/update-push-token', {
-        method: 'PUT',
+      const response = await apiService.makeRequest('/api/usuarios/push-token', {
+        method: 'POST',
         body: JSON.stringify({
-          expoPushToken: token,
           userId: this.userId,
-          userName: this.userName,
-          userRole: this.userRole,
-          platform: Platform.OS
-        }),
+          pushToken: token
+        })
       });
-      console.log('✅ Push token actualizado en servidor');
+
+      return { success: true, response };
     } catch (error) {
-      // Si el endpoint no existe (404) o hay error de auth (401), no es crítico
-      if (error.message.includes('404') || error.message.includes('401')) {
-        console.log('ℹ️ Push token no pudo actualizarse en servidor (continuando sin él)');
-        return; // No lanzar error, continuar sin actualizar en servidor
-      }
-      
-      console.error('❌ Error actualizando push token en servidor:', error);
-      // No lanzar error para permitir que las notificaciones locales funcionen
-      console.log('⚠️ Continuando con notificaciones locales solamente');
+      console.error('❌ Error actualizando push token:', error);
+      return { success: false, error: error.message };
     }
   }
 
   setupNotificationListeners() {
-    // Listener para notificaciones recibidas
+    // Listener para notificaciones recibidas cuando la app está en primer plano
     this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('📨 Notificación recibida:', notification);
+      this.handleNotificationResponse({ notification });
     });
 
     // Listener para cuando el usuario toca una notificación
     this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notificación tocada:', response);
       this.handleNotificationResponse(response);
     });
   }
 
   handleNotificationResponse(response) {
     const data = response.notification.request.content.data;
-    console.log('🎯 Procesando respuesta de notificación:', data);
     
     if (data?.module) {
-      console.log(`📋 Módulo: ${data.module}`);
-      // Aquí podrías navegar a pantallas específicas según el módulo
+      // Manejar navegación basada en el módulo de la notificación
     }
   }
 
@@ -232,9 +158,6 @@ class NotificationService {
 
   async updateTokenAfterLogin(user, authToken) {
     try {
-      console.log('🔄 Actualizando configuración post-login...');
-      
-      // Actualizar información del usuario
       this.userId = user.id;
       this.userName = user.nombre;
       this.userRole = user.rol;
@@ -244,11 +167,9 @@ class NotificationService {
       
       // Si ya tenemos un push token, actualizarlo en el servidor
       if (this.expoPushToken) {
-        console.log('📱 Sincronizando push token con servidor...');
         await this.updatePushTokenOnServer(this.expoPushToken);
       }
       
-      console.log('✅ Configuración post-login completada');
       return { success: true };
     } catch (error) {
       console.error('❌ Error en configuración post-login:', error);
@@ -260,8 +181,6 @@ class NotificationService {
 
   async sendLocalNotification(title, body, data = {}) {
     try {
-      console.log('📱 Enviando notificación local:', { title, body });
-      
       await Notifications.scheduleNotificationAsync({
         content: {
           title: title,
@@ -272,7 +191,6 @@ class NotificationService {
         trigger: null, // Mostrar inmediatamente
       });
       
-      console.log('✅ Notificación local enviada');
       return { success: true, type: 'local' };
     } catch (error) {
       console.error('❌ Error enviando notificación local:', error);
@@ -282,12 +200,10 @@ class NotificationService {
 
   async sendCustomNotification(notificationData) {
     try {
-      console.log('📤 Enviando notificación personalizada:', notificationData);
-      
       // Enviar notificación local inmediata
       await this.sendLocalNotification(
-        notificationData.title || '🔔 Nueva Notificación',
-        notificationData.message || 'Tienes una nueva notificación',
+        notificationData.title || notificationData.titulo || '🔔 Nueva Notificación',
+        notificationData.message || notificationData.mensaje || 'Tienes una nueva notificación',
         notificationData.data || {}
       );
 
@@ -296,18 +212,14 @@ class NotificationService {
         const response = await apiService.makeRequest('/api/notifications/custom', {
           method: 'POST',
           body: JSON.stringify({
-            titulo: notificationData.title,
-            mensaje: notificationData.message,
-            modulo: notificationData.module || 'general',
-            usuario_emisor: this.userName || 'Sistema',
-            rol_emisor: this.userRole || 'usuario',
-            datos_adicionales: notificationData.data || {},
-            requiere_aprobacion: notificationData.requiresApproval || false
+            titulo: notificationData.title || notificationData.titulo,
+            mensaje: notificationData.message || notificationData.mensaje,
+            modulo: notificationData.module || notificationData.modulo || 'general',
+            datos_extra: notificationData.data || {}
           })
         });
-        console.log('✅ Notificación guardada en servidor:', response);
       } catch (serverError) {
-        console.log('⚠️ Error guardando en servidor (continúa con local):', serverError.message);
+        // Continuar con notificación local
       }
 
       return { success: true, type: 'custom' };

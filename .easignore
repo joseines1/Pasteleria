@@ -9,4 +9,12 @@ ios/
 .idea/
 test-*.js
 setup-*.js
-*.md 
+*.md
+build-*.js
+# Archivos temporales de Windows
+Thumbs.db
+*.tmp
+*.temp
+# Archivos de cache
+.DS_Store
+*.cache 

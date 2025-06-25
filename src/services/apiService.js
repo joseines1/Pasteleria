@@ -268,38 +268,29 @@ class ApiService {
 
   // === NOTIFICACIONES ===
   async getNotifications() {
-    console.log('🔔 Obteniendo notificaciones desde API...');
-    const response = await this.makeRequest('/api/notifications');
-    console.log('✅ Notificaciones obtenidas:', response);
-    return response;
+    return await this.makeRequest('/api/notifications');
   }
 
   async getNotificationStats() {
-    console.log('📊 Obteniendo estadísticas de notificaciones...');
-    const response = await this.makeRequest('/api/notifications/stats');
-    console.log('✅ Estadísticas obtenidas:', response);
-    return response;
+    return await this.makeRequest('/api/notifications/stats');
   }
 
   async markNotificationAsRead(notificationId) {
-    console.log(`👀 Marcando notificación ${notificationId} como leída...`);
-    return this.makeRequest(`/api/notifications/${notificationId}/read`, {
-      method: 'PUT',
+    return await this.makeRequest(`/api/notifications/${notificationId}/read`, {
+      method: 'PUT'
     });
   }
 
   async deleteNotification(notificationId) {
-    console.log(`🗑️ Eliminando notificación ${notificationId}...`);
-    return this.makeRequest(`/api/notifications/${notificationId}`, {
-      method: 'DELETE',
+    return await this.makeRequest(`/api/notifications/${notificationId}`, {
+      method: 'DELETE'
     });
   }
 
-  async approveNotification(notificationId, action, comment = '') {
-    console.log(`✅ ${action === 'aprobada' ? 'Aprobando' : 'Rechazando'} notificación ${notificationId}...`);
-    return this.makeRequest(`/api/notifications/${notificationId}/approve`, {
+  async approveNotification(notificationId, action) {
+    return await this.makeRequest(`/api/notifications/${notificationId}/approve`, {
       method: 'PUT',
-      body: JSON.stringify({ action, comment }),
+      body: JSON.stringify({ action })
     });
   }
 

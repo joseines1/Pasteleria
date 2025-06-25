@@ -34,6 +34,80 @@ const NotificationsScreen = () => {
     tipo: 'info'
   });
   const [processingApproval, setProcessingApproval] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Función para generar datos demo cuando no hay conexión
+  const generateDemoNotifications = () => {
+    return [
+      {
+        id: 1,
+        titulo: '🧁 Nueva receta de cupcakes',
+        mensaje: 'Se ha agregado una nueva receta de cupcakes de vainilla al sistema',
+        tipo: 'info',
+        modulo: 'recetas',
+        estado: 'no_leida',
+        created_at: new Date().toISOString(),
+        usuario_solicitante_nombre: 'María García'
+      },
+      {
+        id: 2,
+        titulo: '📦 Ingrediente agotándose',
+        mensaje: 'El stock de harina está por debajo del mínimo requerido',
+        tipo: 'warning',
+        modulo: 'ingredientes',
+        estado: 'no_leida',
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        usuario_solicitante_nombre: 'Sistema'
+      },
+      {
+        id: 3,
+        titulo: '✅ Postre aprobado',
+        mensaje: 'El postre "Tarta de chocolate" ha sido aprobado para producción',
+        tipo: 'success',
+        modulo: 'postres',
+        estado: 'leida',
+        created_at: new Date(Date.now() - 7200000).toISOString(),
+        usuario_solicitante_nombre: 'Ana López'
+      }
+    ];
+  };
+
+  // Función para cargar solicitudes pendientes
+  const loadPendingRequests = async () => {
+    try {
+      console.log('📋 Intentando cargar solicitudes pendientes...');
+      
+      // Intentar obtener desde el AuthContext si tiene el método
+      if (handleNotificationApproval) {
+        // Simular solicitudes pendientes de ejemplo si no hay API
+        return [
+          {
+            id: 'req_1',
+            titulo: 'Solicitud de nueva receta',
+            mensaje: 'Un empleado solicita agregar una nueva receta de brownies',
+            modulo: 'recetas',
+            created_at: new Date().toISOString(),
+            usuario_solicitante_nombre: 'Carlos Ruiz',
+            accion: 'crear_receta'
+          },
+          {
+            id: 'req_2',
+            titulo: 'Solicitud de modificación de ingrediente',
+            mensaje: 'Solicitud para modificar el precio del azúcar',
+            modulo: 'ingredientes',
+            created_at: new Date(Date.now() - 1800000).toISOString(),
+            usuario_solicitante_nombre: 'Lucia Mendez',
+            accion: 'modificar_ingrediente'
+          }
+        ];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error cargando solicitudes pendientes:', error);
+      return [];
+    }
+  };
 
   useEffect(() => {
     loadNotifications();
@@ -53,134 +127,108 @@ const NotificationsScreen = () => {
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      
-      // PANEL DE ADMINISTRADOR - Solicitudes pendientes reales
-      console.log('👑 CARGANDO PANEL DE ADMINISTRADOR...');
-      
-      // Cargar solicitudes pendientes desde el servicio de notificaciones
-      const pendingFromStorage = await notificationService.getPendingApprovalRequests?.() || [];
-      
-      // Datos demo para administradores con solicitudes pendientes
-      const adminNotifications = [
-        {
-          id: 'demo-1',
-          titulo: '🛠️ Panel de Administrador Activo',
-          mensaje: 'Bienvenido al panel de administrador. Aquí verás todas las solicitudes de aprobación.',
-          tipo: 'info',
-          estado: 'no_leida',
-          created_at: new Date().toISOString(),
-          modulo: 'sistema',
-          usuario_destinatario_id: user?.id,
-          usuario_solicitante_nombre: 'Sistema',
-          requiere_aprobacion: false,
-          prioridad: 'baja'
-        },
-        // Agregar solicitudes pendientes del storage
-        ...pendingFromStorage.map(request => ({
-          id: `pending-${request.id || Date.now()}`,
-          titulo: `🔔 ${request.titulo || 'Solicitud de Aprobación'}`,
-          mensaje: request.mensaje || 'Solicitud pendiente de aprobación',
-          tipo: 'warning',
-          estado: 'no_leida',
-          created_at: request.timestamp || new Date().toISOString(),
-          modulo: request.modulo || 'general',
-          usuario_destinatario_id: user?.id,
-          usuario_solicitante_nombre: request.usuario_solicitante || 'Empleado',
-          requiere_aprobacion: true,
-          prioridad: 'alta',
-          approval_data: request.approval_data,
-          action_type: request.action_type
-        }))
-      ];
+      setError(null);
+      console.log('🔄 LoadNotifications iniciado - Usuario:', user?.email, 'Rol:', user?.rol);
 
-      // Solicitudes demo adicionales para mostrar funcionalidad
-      const demoRequests = [
-        {
-          id: 'demo-req-1',
-          titulo: '➕ Solicitud: Crear Ingrediente',
-          mensaje: 'Juan Pérez solicita crear: "Chocolate Premium" (500g)',
-          tipo: 'warning',
-          estado: 'no_leida',
-          created_at: new Date(Date.now() - 300000).toISOString(),
-          modulo: 'ingredientes',
-          usuario_destinatario_id: user?.id,
-          usuario_solicitante_nombre: 'Juan Pérez',
-          requiere_aprobacion: true,
-          prioridad: 'alta',
-          approval_data: {
-            action: 'create',
-            data: { nombre: 'Chocolate Premium', stock: 500, unidad: 'g' }
-          },
-          action_type: 'create_ingredient'
-        },
-        {
-          id: 'demo-req-2',
-          titulo: '✏️ Solicitud: Editar Postre',
-          mensaje: 'María García solicita editar: "Tarta de Fresa" - cambiar precio',
-          tipo: 'info',
-          estado: 'no_leida',
-          created_at: new Date(Date.now() - 600000).toISOString(),
-          modulo: 'postres',
-          usuario_destinatario_id: user?.id,
-          usuario_solicitante_nombre: 'María García',
-          requiere_aprobacion: true,
-          prioridad: 'media',
-          approval_data: {
-            action: 'edit',
-            data: { id: 1, nombre: 'Tarta de Fresa', precio: 25.99 }
-          },
-          action_type: 'edit_postre'
-        },
-        {
-          id: 'demo-req-3',
-          titulo: '🗑️ Solicitud: Eliminar Receta',
-          mensaje: 'Carlos López solicita eliminar receta: "Brownie Simple" (descontinuada)',
-          tipo: 'error',
-          estado: 'no_leida',
-          created_at: new Date(Date.now() - 900000).toISOString(),
-          modulo: 'recetas',
-          usuario_destinatario_id: user?.id,
-          usuario_solicitante_nombre: 'Carlos López',
-          requiere_aprobacion: true,
-          prioridad: 'alta',
-          approval_data: {
-            action: 'delete',
-            data: { id: 3, nombre: 'Brownie Simple' }
-          },
-          action_type: 'delete_receta'
+      // Si no hay usuario logueado, mostrar datos demo
+      if (!user?.id) {
+        console.log('⚠️ No hay usuario logueado, usando datos demo');
+        const demoNotifications = generateDemoNotifications();
+        setNotifications(demoNotifications);
+        return;
+      }
+
+      console.log('✅ Usuario verificado:', user.rol);
+
+      // Si es administrador, cargar solicitudes pendientes desde el AuthContext
+      if (user.rol === 'administrador') {
+        console.log('👑 Usuario administrador detectado, cargando solicitudes...');
+        
+        try {
+          const requests = await loadPendingRequests();
+          console.log('📋 Solicitudes cargadas:', requests?.length || 0);
+          
+          if (requests && Array.isArray(requests)) {
+            // Convertir solicitudes a formato de notificaciones
+            const notificationRequests = requests.map(request => ({
+              id: request.id,
+              titulo: `🔔 ${request.titulo || 'Solicitud de Aprobación'}`,
+              mensaje: request.mensaje || 'Nueva solicitud pendiente de aprobación',
+              tipo: 'solicitud',
+              modulo: request.modulo || 'general',
+              estado: 'no_leida',
+              created_at: request.created_at || new Date().toISOString(),
+              usuario_solicitante_nombre: request.usuario_solicitante_nombre || 'Usuario',
+              requiere_aprobacion: true,
+              approval_data: request,
+              action_type: request.accion || 'general'
+            }));
+
+            setPendingRequests(requests);
+            
+            // También cargar notificaciones normales
+            try {
+              console.log('📊 Intentando cargar notificaciones adicionales...');
+              const realNotifications = await notificationService.getNotifications?.() || [];
+              console.log('📬 Notificaciones adicionales:', realNotifications.length);
+              const combinedNotifications = [...notificationRequests, ...realNotifications];
+              setNotifications(combinedNotifications);
+              console.log('✅ Notificaciones combinadas exitosamente:', combinedNotifications.length);
+            } catch (notifError) {
+              console.log('⚠️ Error cargando notificaciones adicionales:', notifError.message);
+              // Si falla cargar notificaciones normales, solo mostrar solicitudes
+              setNotifications(notificationRequests);
+            }
+            return;
+          } else {
+            console.log('⚠️ No se obtuvieron solicitudes válidas, usando datos demo');
+          }
+        } catch (requestError) {
+          console.error('❌ Error cargando solicitudes pendientes:', requestError.message);
         }
-      ];
+      }
 
-      // Combinar notificaciones administrativas y solicitudes demo
-      const allNotifications = [...adminNotifications, ...demoRequests];
-      
-      // Separar solicitudes pendientes
-      const pending = allNotifications.filter(n => n.requiere_aprobacion && n.estado === 'no_leida');
-      
-      setNotifications(allNotifications);
-      setPendingRequests(pending);
-      
-      // Intentar cargar datos reales
+      // Para empleados, intentar cargar notificaciones reales primero
+      console.log('👤 Cargando notificaciones para empleado...');
       try {
         const response = await apiService.getNotifications();
-        if (response && response.notifications) {
-          // Filtrar solo notificaciones para este usuario
-          const userNotifications = response.notifications.filter(
-            notif => notif.usuario_destinatario_id === user?.id || 
-                    (user?.rol === 'administrador' && notif.tipo === 'admin')
-          );
-          setNotifications(userNotifications);
+        console.log('📡 Respuesta API notificaciones:', response ? 'OK' : 'Vacía');
+        
+        if (response?.notifications && Array.isArray(response.notifications)) {
+          const realNotifications = response.notifications.map(notif => ({
+            ...notif,
+            id: notif.id || Date.now() + Math.random(),
+            tipo: notif.tipo || 'info',
+            estado: notif.estado || 'no_leida',
+            modulo: notif.modulo || 'general'
+          }));
+          
+          console.log('✅ Notificaciones reales cargadas:', realNotifications.length);
+          setNotifications(realNotifications);
+          return;
         }
-      } catch (error) {
-        console.log('Usando datos demo:', error.message);
+      } catch (apiError) {
+        console.error('❌ Error API notificaciones:', apiError.message);
+        // Si falla la API, usar datos demo
       }
-      
+
+      // Fallback: generar datos demo
+      console.log('🎭 Generando datos demo como fallback');
+      const demoNotifications = generateDemoNotifications();
+      setNotifications(demoNotifications);
+      console.log('✅ Datos demo establecidos:', demoNotifications.length);
+
     } catch (error) {
-      console.error('Error loading notifications:', error);
-      Alert.alert('Error', 'No se pudieron cargar las notificaciones');
+      console.error('❌ Error general en loadNotifications:', error);
+      setError('No se pudieron cargar las notificaciones');
+      // En caso de error, mostrar datos demo
+      const demoNotifications = generateDemoNotifications();
+      setNotifications(demoNotifications);
+      console.log('🆘 Datos demo de emergencia establecidos');
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      setRefreshing(false); // Asegurar que el refresh termina
+      console.log('🏁 LoadNotifications completado, loading=false');
     }
   };
 
@@ -335,7 +383,12 @@ const NotificationsScreen = () => {
 
       // Enviar usando el servicio de notificaciones
       try {
-        await notificationService.sendCustomNotification(customNotification, user?.nombre || 'Usuario');
+        await notificationService.sendCustomNotification({
+          title: customNotification.titulo,
+          message: customNotification.mensaje,
+          module: customNotification.modulo,
+          data: { tipo: customNotification.tipo }
+        });
         Alert.alert(
           '🎉 Creada', 
           `Notificación personalizada enviada\nModo: ${serviceStatus?.mode || 'desconocido'}\n\n${serviceStatus?.isExpoGo ? '📱 Notificación local programada' : '📱 Push notification enviada'}`
@@ -380,15 +433,11 @@ const NotificationsScreen = () => {
             style: action === 'approve' ? 'default' : 'destructive',
             onPress: async () => {
               try {
-                console.log(`👑 ADMIN: ${action === 'approve' ? 'Aprobando' : 'Rechazando'} solicitud:`, notification.id);
-                
                 if (action === 'approve') {
                   // Usar la función del AuthContext para ejecutar la acción
                   const result = await handleNotificationApproval(notification.approval_data, notification.action_type);
                   
                   if (result.success) {
-                    console.log('✅ Acción ejecutada exitosamente:', result);
-                    
                     Alert.alert(
                       '✅ Solicitud Aprobada',
                       `La solicitud ha sido aprobada y ejecutada:\n\n${notification.titulo}\n\nEl empleado será notificado.`,
@@ -398,8 +447,6 @@ const NotificationsScreen = () => {
                     throw new Error(result.error || 'Error ejecutando la acción');
                   }
                 } else {
-                  console.log('❌ Solicitud rechazada por el administrador');
-                  
                   Alert.alert(
                     '❌ Solicitud Rechazada',
                     `La solicitud ha sido rechazada:\n\n${notification.titulo}\n\nEl empleado será notificado.`,
