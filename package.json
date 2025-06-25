@@ -15,6 +15,7 @@
     "build:status": "npx eas build:list"
   },
   "dependencies": {
+    "@expo/cli": "^0.24.15",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-picker/picker": "^2.11.0",
@@ -23,9 +24,11 @@
     "@react-navigation/stack": "^7.3.4",
     "expo": "53.0.12",
     "expo-constants": "~17.1.6",
+    "expo-dev-client": "~5.2.1",
     "expo-device": "~7.1.4",
     "expo-notifications": "~0.31.3",
     "expo-status-bar": "~2.2.3",
+    "expo-updates": "~0.28.15",
     "node-fetch": "^3.3.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -33,9 +36,7 @@
     "react-native-gesture-handler": "~2.24.0",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-web": "^0.20.0",
-    "expo-updates": "~0.28.15",
-    "expo-dev-client": "~5.2.1"
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
